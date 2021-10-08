@@ -115,5 +115,33 @@ val tld = BETWEEN(RANGE(alphabets + '.'),2,6)
 
 val email_regex = SEQ(username, SEQ(CHAR('@'), SEQ(domain, SEQ(CHAR('.'), tld))))
 
-matcher(email_regex, myEmail)
+matcher(email_regex, myEmail);
 
+
+// Question 6
+val specialR = SEQ( CHAR('/') , SEQ(CHAR('*') , SEQ((NOT( SEQ(STAR(ALL), SEQ(CHAR('*'),SEQ(CHAR('/'),STAR(ALL)))))) , SEQ(CHAR('*') , CHAR('/')))))
+
+matcher(specialR, "/**/") // yes
+matcher(specialR, "/*foobar*/") // yes
+matcher(specialR, "/*test*/test*/") // no
+matcher(specialR, "/*test/*test*/") // yes
+
+//Question 7
+
+val R1 = SEQ(CHAR('a'), SEQ(CHAR('a'), CHAR('a')))
+val R2 = SEQ(BETWEEN(CHAR('a'), 19, 19) , OPTIONAL(CHAR('a')) )
+
+val R1_E = PLUS(R1)
+val R2_E = PLUS(R2)
+
+val oneA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+matcher(R1_E, oneA) // yes
+matcher(R2_E, oneA) // yes
+
+val twoA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+matcher(R1_E, twoA) // no
+matcher(R2_E, twoA) // no
+
+val threeA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+matcher(R1_E, threeA) // no
+matcher(R2_E, threeA) // yes
