@@ -2,16 +2,15 @@
  * Author: Ayan Ahmad
 */
 
+/* Class Definitions */
 abstract class Rexp
 case object ZERO extends Rexp                                // matches nothing
 case object ONE extends Rexp                                 // matches an empty string
-// case class CHAR(c: Char) extends Rexp                        // matches a character c
 case class ALT(r1: Rexp, r2: Rexp) extends Rexp              // alternative
 case class SEQ(r1: Rexp, r2: Rexp) extends Rexp              // sequence
 case class STAR(r: Rexp) extends Rexp                        // star
 
-/*______ Extended Cases - Classes ______*/
-// case class RANGE(s: Set[Char]) extends Rexp                  // range, gives a set of characters
+// Extended Cases 
 case class PLUS(r: Rexp) extends Rexp                        // plus, 1 or more of r
 case class OPTIONAL(r: Rexp) extends Rexp                    // optional 
 case class NTIMES(r: Rexp, n: Int) extends Rexp              // n times
@@ -20,15 +19,18 @@ case class FROM(r: Rexp, n: Int) extends Rexp                // from
 case class BETWEEN(r: Rexp, n: Int, m: Int) extends Rexp     // between n and m but more than 0 
 case class NOT(r: Rexp) extends Rexp                         // not r
 case class CFUN(f: Char => Boolean) extends Rexp             // single construction, 
+/* End Class Definitions */
 
-
-// CFUN translations
+/* CFUN translations */
 def CHAR(c : Char) = CFUN((ch : Char) => c == ch)
 def RANGE(s: Set[Char]) = CFUN((ch : Char) => s.contains(ch))
 def ALL = CFUN ((_ : Char) => true)
+/* End CFUN translations */
 
-
-// nullable function: tests whether a regular expression can recognise the empty string
+/* 
+* Nullable Function 
+* This tests whether a regular expression can recognize the empty string
+*/
 def nullable(r: Rexp) : Boolean = r match {
   case ZERO => false
   case ONE => true
@@ -48,8 +50,12 @@ def nullable(r: Rexp) : Boolean = r match {
   case NOT(r) => !nullable(r)
   case CFUN(_) => false
 }
+/* End Nullable Function */
 
-// the derivative of a regular expression w.r.t. a character
+/* 
+* Der Function 
+* The derivative of a regular expression w.r.t. a character
+*/
 def der(c: Char, r: Rexp) : Rexp = r match {
 	case ZERO => ZERO
 	case ONE => ZERO
@@ -69,7 +75,9 @@ def der(c: Char, r: Rexp) : Rexp = r match {
 	case NOT(r) => NOT(der(c, r))
 	case CFUN(f) => if(f(c)) ONE else ZERO
 }
+/* End Der Function */
 
+/* Simplification Function */
 def simp(r: Rexp) : Rexp = r match {
   case ALT(r1, r2) => (simp(r1), simp(r2)) match {
     case (ZERO, r2s) => r2s
@@ -85,19 +93,26 @@ def simp(r: Rexp) : Rexp = r match {
   }
   case r => r
 }
+/* End Simplification Function */
 
-// the derivative w.r.t. a string (iterates der)
+/*
+* Ders Function
+* the derivative w.r.t. a string (iterates der)
+*/
 def ders(s: List[Char], r: Rexp) : Rexp = s match {
   case Nil => r
   case c::s => ders(s, simp(der(c, r)))
 }
-
+/* End Multiple Ders Function */
 
 // the main matcher function
 def matcher(r: Rexp, s: String) : Boolean = nullable(ders(s.toList, r))
 
 
-//Question 5
+/*
+  * Question 5
+  * Takes an email to match with a defined regex.
+*/
 val myEmail = "ayan.ahmad@kcl.ac.ukssssaaaaaa"
 
 
@@ -117,17 +132,19 @@ val email_regex = SEQ(username, SEQ(CHAR('@'), SEQ(domain, SEQ(CHAR('.'), tld)))
 
 matcher(email_regex, myEmail);
 
+/* End Question 5  */
 
-// Question 6
+
+/* Question 6 */
 val specialR = SEQ( CHAR('/') , SEQ(CHAR('*') , SEQ((NOT( SEQ(STAR(ALL), SEQ(CHAR('*'),SEQ(CHAR('/'),STAR(ALL)))))) , SEQ(CHAR('*') , CHAR('/')))))
 
 matcher(specialR, "/**/") // yes
 matcher(specialR, "/*foobar*/") // yes
 matcher(specialR, "/*test*/test*/") // no
 matcher(specialR, "/*test/*test*/") // yes
+/* End Question 6 */
 
-//Question 7
-
+/* Question 7 */
 val R1 = SEQ(CHAR('a'), SEQ(CHAR('a'), CHAR('a')))
 val R2 = SEQ(BETWEEN(CHAR('a'), 19, 19) , OPTIONAL(CHAR('a')) )
 
@@ -145,3 +162,4 @@ matcher(R2_E, twoA) // no
 val threeA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 matcher(R1_E, threeA) // no
 matcher(R2_E, threeA) // yes
+/* End Question 7 */
