@@ -34,13 +34,11 @@ def ALL = CFUN ((_ : Char) => true)
 def nullable(r: Rexp) : Boolean = r match {
   case ZERO => false
   case ONE => true
-	//   case CHAR(_) => false
   case ALT(r1, r2) => nullable(r1) || nullable(r2)
   case SEQ(r1, r2) => nullable(r1) && nullable(r2)
   case STAR(_) => true
   
   /*______ Extended Cases ______*/
-	//   case RANGE(s) => false
   case PLUS(r) => nullable(r)
   case OPTIONAL(r) => true
   case NTIMES(r, n) => if (n == 0) true else nullable(r)
@@ -59,13 +57,11 @@ def nullable(r: Rexp) : Boolean = r match {
 def der(c: Char, r: Rexp) : Rexp = r match {
 	case ZERO => ZERO
 	case ONE => ZERO
-	// case CHAR(d) => if (c == d) ONE else ZERO
 	case ALT(r1, r2) => ALT(der(c, r1), der(c, r2))
 	case SEQ(r1, r2) => if (nullable(r1)) ALT(SEQ(der(c, r1), r2), der(c, r2)) else SEQ(der(c, r1), r2)
 	case STAR(r1) => SEQ(der(c, r1), STAR(r1))
 
 	/*______ Extended Cases ______*/
-	// case RANGE(s) => if (s.contains(c)) ONE else ZERO
 	case PLUS(r) => SEQ(der(c, r), STAR(r))
 	case OPTIONAL(r) => der(c, r)
 	case NTIMES(r, n) => if (n == 0) ZERO else SEQ(der(c, r), NTIMES(r, n - 1))
@@ -108,6 +104,10 @@ def ders(s: List[Char], r: Rexp) : Rexp = s match {
 // the main matcher function
 def matcher(r: Rexp, s: String) : Boolean = nullable(ders(s.toList, r))
 
+
+val specialR = FROM(CHAR('a'), 4)
+
+matcher(specialR, "aaaa") // yes
 
 /*
   * Question 5
