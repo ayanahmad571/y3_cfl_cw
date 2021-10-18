@@ -10,6 +10,10 @@ case class ALT(r1: Rexp, r2: Rexp) extends Rexp              // alternative
 case class SEQ(r1: Rexp, r2: Rexp) extends Rexp              // sequence
 case class STAR(r: Rexp) extends Rexp                        // star
 
+// Test Related
+// case class RANGE(s: Set[Char]) extends Rexp 
+// case class CHAR(c: Char) extends Rexp          
+
 // Extended Cases 
 case class PLUS(r: Rexp) extends Rexp                        // plus, 1 or more of r
 case class OPTIONAL(r: Rexp) extends Rexp                    // optional 
@@ -38,6 +42,11 @@ def nullable(r: Rexp) : Boolean = r match {
   case SEQ(r1, r2) => nullable(r1) && nullable(r2)
   case STAR(_) => true
   
+  /* _____ Test Related ________*/
+  // case RANGE(s)         => false
+  // case CHAR(_)          => false
+
+  
   /*______ Extended Cases ______*/
   case PLUS(r) => nullable(r)
   case OPTIONAL(r) => true
@@ -60,6 +69,10 @@ def der(c: Char, r: Rexp) : Rexp = r match {
 	case ALT(r1, r2) => ALT(der(c, r1), der(c, r2))
 	case SEQ(r1, r2) => if (nullable(r1)) ALT(SEQ(der(c, r1), r2), der(c, r2)) else SEQ(der(c, r1), r2)
 	case STAR(r1) => SEQ(der(c, r1), STAR(r1))
+
+  /* _____ Test Related ________*/
+  // case CHAR(ch)          => if (c == ch) ONE else ZERO
+  // case RANGE(s)         => if (s.contains(c)) ONE else ZERO
 
 	/*______ Extended Cases ______*/
 	case PLUS(r) => SEQ(der(c, r), STAR(r))
@@ -105,15 +118,11 @@ def ders(s: List[Char], r: Rexp) : Rexp = s match {
 def matcher(r: Rexp, s: String) : Boolean = nullable(ders(s.toList, r))
 
 
-val specialR = FROM(CHAR('a'), 4)
-
-matcher(specialR, "aaaa") // yes
-
 /*
   * Question 5
   * Takes an email to match with a defined regex.
 */
-val myEmail = "ayan.ahmad@kcl.ac.ukssssaaaaaa"
+val myEmail = "ayan.ahmad@kcl.ac.uk"
 
 
 // Email Breakup
