@@ -289,7 +289,7 @@ val LETTERS : Rexp = RANGE(LETTERS_LIST)
 // val SYMBOLS: Letters + some chars
 
 val EXTRA_CHARS_LIST : List[Char] = List('.' , '_' , '>' , '<' , '=' , ';' , '\\', ':'); 
-val SYMBOLS : Rexp = RANGE(LETTERS_LIST ::: EXTRA_CHARS_LIST)
+val SYMBOLS : Rexp = RANGE(LETTERS_LIST) ~ RANGE(EXTRA_CHARS_LIST).% 
 val RPAREN: Rexp = "{" | "("
 val LPAREN: Rexp = "}" | ")"
 val SEMI: Rexp = ";"
@@ -303,7 +303,7 @@ val DIGITS_NO_ZERO : Rexp = RANGE(('1' to '9').toList)
 
 //Can recognise 0 but not numbers with leading 0s
 val NUMBER = DIGIT | DIGITS_NO_ZERO ~ PLUS(DIGIT)
-val ID = LETTERS ~ (PLUS(UNDERSCORE | LETTERS | DIGIT)) // star or PLUS
+val ID = LETTERS ~ (UNDERSCORE | LETTERS | DIGIT).% // star or PLUS
 val STRING: Rexp = "\"" ~ (SYMBOLS | DIGIT | WHITESPACE).% ~ "\""
 val COMMENT : Rexp = "//" ~ (SYMBOLS | WHITESPACE | DIGIT) ~ NEWLINE
 
@@ -315,7 +315,7 @@ val WHILE_REGS = (("k" $ KEYWORD) |
                   ("s" $ SEMI) | 
                   ("str" $ STRING) |
                   ("p" $ (LPAREN | RPAREN)) | 
-                  ("s" $ SYMBOLS) | 
+                  ("sy" $ SYMBOLS) | 
                   ("c" $ COMMENT) | 
                   ("w" $ WHITESPACE)).%
 
@@ -360,29 +360,60 @@ val WHILE_REGS = (("k" $ KEYWORD) |
     println((lexing_simp(WHILE_REGS, prog4)).filterNot{_._1 == "w"}.mkString("\n"))
     println((lexing_simp(WHILE_REGS, prog5)).filterNot{_._1 == "w"}.mkString("\n"))
 
-    val REXE : Rexp = NTIMES(ALT(CHAR('a'), ONE), 3)
-lexing_simp(REXE, "aa".toList)
 
-val REXE2 : Rexp = NTIMES(CHAR('a') , 3)
-lex_simp(REXE2, "aaa".toList)
+val test1 = 
+"""write "Fib";
+read n;
+minus1 := 0;
+minus2 := 1;
+while n > 0 do {
+    temp := minus2;
+    minus2 := minus1 + minus2;
+    minus1 := temp;
+    n := n - 1
+};
+write "Result";
+write minus2
+"""
 
-val REXE3 : Rexp = RANGE("abc".toSet)
-lex_simp(REXE3, "c".toList)
-
-val REXE4 : Rexp = NTIMES(ALT(ALT(CHAR('a'), CHAR('b')), ONE) , 4)
-lex_simp(REXE4, "bba".toList)
-
-
-    val figure2 = """
-    start := 1000;
-    x := start;
-    y := start;
-    z := start; while 0 < x do {
+val test2 = """
+start := 1000;
+x := start;
+y := start;
+z := start;
+while 0 < x do {
     while 0 < y do {
-    while 0 < z do { z := z - 1 }; z := start;
-    y := y - 1
+        while 0 < z do { z := z - 1 };
+        z := start;
+        y := y - 1
     };
-    y := start; x := x - 1
+    y := start;
+    x := x - 1
+}
+"""
+
+val test3 = """
+write "Input n please";
+read n;
+write "The factors of n are";
+f := 2;
+while (f < n / 2 + 1) do {
+    if ((n / f) * f == n) then { write(f) } else { skip };
+    f := f + 1
+}
+"""
+
+   
+    // https://stackoverflow.com/questions/9913971/scala-how-can-i-get-an-escaped-representation-of-a-string
+    def esc(raw: String): String = {
+    import scala.reflect.runtime.universe._
+    Literal(Constant(raw)).toString
     }
-            """
-    println((lexing_simp(WHILE_REGS, figure2)).filterNot{_._1 == "w"}.mkString("\n"))
+
+    def escape_master(envl: List[(String, String)]) =
+    envl.map{ case (s1, s2) => (s1, esc(s2))}
+
+
+    println(escape_master(lexing_simp(WHILE_REGS, test1)).mkString("\n"))
+    println(escape_master(lexing_simp(WHILE_REGS, test2)).mkString("\n"))
+    println(escape_master(lexing_simp(WHILE_REGS, test3)).mkString("\n"))
