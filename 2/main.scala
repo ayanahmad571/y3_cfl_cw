@@ -36,8 +36,15 @@ case class Left(v: Val) extends Val
 case class Right(v: Val) extends Val
 case class Stars(vs: List[Val]) extends Val
 case class Rec(x: String, v: Val) extends Val
-   
 /* End Class Definitions */
+
+
+/* CFUN translations */
+def CHAR(c : Char) = CFUN((ch : Char) => c == ch)
+def RANGE(s: List[Char]) = CFUN((ch : Char) => s.contains(ch))
+def ALL = CFUN (_ => true)
+/* End CFUN translations */
+   
 
 def charlist2rexp(s : List[Char]): Rexp = s match {
   case Nil => ONE
@@ -46,11 +53,6 @@ def charlist2rexp(s : List[Char]): Rexp = s match {
 }
 
 
-/* CFUN translations */
-def CHAR(c : Char) = CFUN((ch : Char) => c == ch)
-def RANGE(s: Set[Char]) = CFUN((ch : Char) => s.contains(ch))
-def ALL = CFUN ((_ : Char) => true)
-/* End CFUN translations */
 
 implicit def string2rexp(s : String) : Rexp = 
   charlist2rexp(s.toList)
@@ -185,35 +187,41 @@ def mkeps(r: Rexp) : Val = r match {
     case SEQ(r1, r2) => Sequ(mkeps(r1), mkeps(r2))
     case STAR(r) => Stars(Nil)
     case RECD(x, r) => Rec(x, mkeps(r))
-    case PLUS(r) => mkeps(SEQ(r, STAR(r)));
-    case OPTION(r) => Empty
-    case NTIMES(r ,n) => if (n != 0) mkeps(STAR(NTIMES(r,n-1))) else Stars(Nil)
 
-    case PLUS(r) => Sequ(mkeps(r), mkeps(STAR(r))) // r{+} = r ~ r.%
-    case OPTIONAL(r) => mkeps(r) // r + 1 ? Check for case where r is nullable
-    case NTIMES(r, n) => Stars(List.tabulate(n)(_ => mkeps(r)))
-    case RECD(x, r) => Rec(x, mkeps(r))
+    // case RANGE => Nil // IDK
+    case PLUS(_) => Sequ(mkeps(r), mkeps(STAR(r))) // r{+} = SEQ(r, STAR(r))
+    // case OPTIONAL(r) => mkeps(r) // r + 1 ? Check for case where r is nullable IDK
+    case OPTIONAL(r) => Empty
+    case NTIMES(r,n) => mkeps(r)
+    // case CFUN(_) => Nil
 
 }
 
 def inj(r: Rexp, c: Char, v: Val) : Val = (r, v) match {
-  case (STAR(r), Sequ(v1, Stars(vs))) => Stars(inj(r, c, v1)::vs)
-  case (SEQ(r1, r2), Sequ(v1, v2)) => Sequ(inj(r1, c, v1), v2)
-  case (SEQ(r1, r2), Left(Sequ(v1, v2))) => Sequ(inj(r1, c, v1), v2)
-  case (SEQ(r1, r2), Right(v2)) => Sequ(mkeps(r1), inj(r2, c, v2))
-  case (ALT(r1, r2), Left(v1)) => Left(inj(r1, c, v1))
-  case (ALT(r1, r2), Right(v2)) => Right(inj(r2, c, v2))
-  case (CHAR(d), Empty) => Chr(c) 
-  case (RECD(x, r1), _) => Rec(x, inj(r1, c, v))
+    case (STAR(r), Sequ(v1, Stars(vs))) => Stars(inj(r, c, v1)::vs)
+    case (SEQ(r1, r2), Sequ(v1, v2)) => Sequ(inj(r1, c, v1), v2)
+    case (SEQ(r1, r2), Left(Sequ(v1, v2))) => Sequ(inj(r1, c, v1), v2)
+    case (SEQ(r1, r2), Right(v2)) => Sequ(mkeps(r1), inj(r2, c, v2))
+    case (ALT(r1, r2), Left(v1)) => Left(inj(r1, c, v1))
+    case (ALT(r1, r2), Right(v2)) => Right(inj(r2, c, v2))
+    // case (CHAR(d), Empty) => Chr(c) 
+    case (CFUN(_), Empty) => Chr(c)
+    case (RECD(x, r1), _) => Rec(x, inj(r1, c, v))
+
+    case (OPTIONAL(r), v) => inj(r, c, v)
+    case (PLUS(r), Sequ(v1, Stars(vs))) => Stars(inj(r, c, v1)::vs)
+    case (NTIMES(r, n), Sequ(v1, Stars(vs))) => Stars(inj(r, c, v1)::vs)
+    case (RECD(x, r1), _) => Rec(x, inj(r1, c, v))
 }
 
+  
 // some "rectification" functions for simplification
 def F_ID(v: Val): Val = v
 def F_RIGHT(f: Val => Val) = (v:Val) => Right(f(v))
 def F_LEFT(f: Val => Val) = (v:Val) => Left(f(v))
 def F_ALT(f1: Val => Val, f2: Val => Val) = (v:Val) => v match {
-  case Right(v) => Right(f2(v))
-  case Left(v) => Left(f1(v))
+    case Right(v) => Right(f2(v))
+    case Left(v) => Left(f1(v))
 }
 def F_SEQ(f1: Val => Val, f2: Val => Val) = (v:Val) => v match {
   case Sequ(v1, v2) => Sequ(f1(v1), f2(v2))
@@ -253,8 +261,7 @@ def simp(r: Rexp): (Rexp, Val => Val) = r match {
 
 // lexing functions including simplification
 def lex_simp(r: Rexp, s: List[Char]) : Val = s match {
-  case Nil => if (nullable(r)) mkeps(r) else 
-    { throw new Exception("lexing error") } 
+  case Nil => if (nullable(r)) mkeps(r) else  { throw new Exception("lexing error") } 
   case c::cs => {
     val (r_simp, f_simp) = simp(der(c, r))
     inj(r, c, f_simp(lex_simp(r_simp, cs)))
@@ -265,47 +272,117 @@ def lexing_simp(r: Rexp, s: String) =
   env(lex_simp(r, s.toList))
 
 
-// The Lexing Rules for the WHILE Language
 
-def PLUS(r: Rexp) = r ~ r.%
 
 def Range(s : List[Char]) : Rexp = s match {
   case Nil => ZERO
   case c::Nil => CHAR(c)
   case c::s => ALT(CHAR(c), Range(s))
 }
-def RANGE(s: String) = Range(s.toList)
+
 
 // Question 1
 val KEYWORD : Rexp = "while" | "if" | "then" | "else" | "do" | "for" | "to" | "true" | "false" | "read" | "write" | "skip" 
 val OP: Rexp = "+" | "-" | "*" | "%" | "/" | "==" | "!=" | ">" | "<" | "<=" | ">=" | ":=" | "&&" | "||"
 val LETTERS_LIST = ('a' to 'z').toList ::: ('A' to 'Z').toList
 val LETTERS : Rexp = RANGE(LETTERS_LIST)
-val EXTRA_CHARS_LIST = ["." , "_" , ">" , "<" , "=" , ";" , "\\", ":"]; 
-val SYM : Rexp = RANGE(LETTERS_LIST ::: EXTRA_CHARS_LIST)
+// val SYMBOLS: Letters + some chars
+
+val EXTRA_CHARS_LIST : List[Char] = List('.' , '_' , '>' , '<' , '=' , ';' , '\\', ':'); 
+val SYMBOLS : Rexp = RANGE(LETTERS_LIST ::: EXTRA_CHARS_LIST)
 val RPAREN: Rexp = "{" | "("
 val LPAREN: Rexp = "}" | ")"
 val SEMI: Rexp = ";"
+val UNDERSCORE: Rexp = "_"
 val WHITESPACE = PLUS(" " | "\n" | "\t")
-val ID = SYM ~ (SYM | DIGIT).% 
+val NEWLINE = PLUS("\r\n" | "\r" | "\n")
 
 val DIGIT = RANGE(('0' to '9').toList)
-val DIGITS_NO_ZERO : Rexp = RANGE("123456789".toSet)
+val DIGITS_NO_ZERO : Rexp = RANGE(('1' to '9').toList)
+
 
 //Can recognise 0 but not numbers with leading 0s
 val NUMBER = DIGIT | DIGITS_NO_ZERO ~ PLUS(DIGIT)
-
-val STRING: Rexp = "\"" ~ (SYM | DIGIT | WHITESPACE).% ~ "\""
-
+val ID = LETTERS ~ (PLUS(UNDERSCORE | LETTERS | DIGIT)) // star or PLUS
+val STRING: Rexp = "\"" ~ (SYMBOLS | DIGIT | WHITESPACE).% ~ "\""
+val COMMENT : Rexp = "//" ~ (SYMBOLS | WHITESPACE | DIGIT) ~ NEWLINE
 
 
 val WHILE_REGS = (("k" $ KEYWORD) | 
+                  ("o" $ OP) |
                   ("i" $ ID) | 
-                  ("o" $ OP) | 
-                  ("n" $ NUM) | 
+                  ("n" $ NUMBER) | 
                   ("s" $ SEMI) | 
                   ("str" $ STRING) |
                   ("p" $ (LPAREN | RPAREN)) | 
+                  ("s" $ SYMBOLS) | 
+                  ("c" $ COMMENT) | 
                   ("w" $ WHITESPACE)).%
 
 
+
+//    println("prog0 test")
+//
+    val prog0 = """start"""
+    val prog1 = """read  n; write (n)"""
+    val prog2 = """
+    write "fib";
+    read n;
+    minus1 := 0;
+    minus2 := 1;
+    while n > 0 do {
+        temp := minus2;
+        minus2 := minus1 + minus2;
+        minus1 := temp;
+        n := n - 1
+    };
+    write "result";
+    write minus2
+                """
+    val prog3 = """
+    start := 001000;
+    x := start;
+    y := start;
+    z := start; while 0 < x do {
+    while 0 < y do {
+    while 0 < z do { z := z - 1 }; z := start;
+    y := y - 1
+    };
+    y := start; x := x - 1
+    } """
+    val prog4 = "0000213"
+    val prog5 = "213"
+
+    println((lexing_simp(WHILE_REGS, prog0)).filterNot{_._1 == "w"}.mkString("\n"))
+    println((lexing_simp(WHILE_REGS, prog1)).filterNot{_._1 == "w"}.mkString("\n"))
+    println((lexing_simp(WHILE_REGS, prog2)).filterNot{_._1 == "w"}.mkString("\n"))
+    println((lexing_simp(WHILE_REGS, prog3)).filterNot{_._1 == "w"}.mkString("\n"))
+    println((lexing_simp(WHILE_REGS, prog4)).filterNot{_._1 == "w"}.mkString("\n"))
+    println((lexing_simp(WHILE_REGS, prog5)).filterNot{_._1 == "w"}.mkString("\n"))
+
+    val REXE : Rexp = NTIMES(ALT(CHAR('a'), ONE), 3)
+lexing_simp(REXE, "aa".toList)
+
+val REXE2 : Rexp = NTIMES(CHAR('a') , 3)
+lex_simp(REXE2, "aaa".toList)
+
+val REXE3 : Rexp = RANGE("abc".toSet)
+lex_simp(REXE3, "c".toList)
+
+val REXE4 : Rexp = NTIMES(ALT(ALT(CHAR('a'), CHAR('b')), ONE) , 4)
+lex_simp(REXE4, "bba".toList)
+
+
+    val figure2 = """
+    start := 1000;
+    x := start;
+    y := start;
+    z := start; while 0 < x do {
+    while 0 < y do {
+    while 0 < z do { z := z - 1 }; z := start;
+    y := y - 1
+    };
+    y := start; x := x - 1
+    }
+            """
+    println((lexing_simp(WHILE_REGS, figure2)).filterNot{_._1 == "w"}.mkString("\n"))
