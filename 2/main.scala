@@ -185,7 +185,6 @@ def flatten(v: Val) : String = v match {
   case Rec(_, v) => flatten(v)
 }
 
-
 // extracts an environment from a value;
 // used for tokenising a string
 def env(v: Val) : List[(String, String)] = v match {
@@ -239,6 +238,7 @@ def inj(r: Rexp, c: Char, v: Val) : Val = (r, v) match {
 }
 
 
+
 // lexing functions including simplification
 def lex_simp(r: Rexp, s: List[Char]) : Val = s match {
   case Nil => if (nullable(r)) mkeps(r) else  { throw new Exception("lexing error") } 
@@ -248,15 +248,11 @@ def lex_simp(r: Rexp, s: List[Char]) : Val = s match {
   }
 }
 
-def lexing_simp(r: Rexp, s: String) = 
-  env(lex_simp(r, s.toList))
-
-
-
+def lexing_simp(r: Rexp, s: String) = env(lex_simp(r, s.toList))
 
 // Question 1
 val LETTERS_LIST = ('a' to 'z').toList ::: ('A' to 'Z').toList
-val EXTRA_CHARS_LIST : List[Char] = List('.' , '_' , '>' , '<' , '=' , ';' , '\\', ':'); 
+val EXTRA_CHARS_LIST : List[Char] = List('.' , '_' , '>' , '<' , '=' , ';' , '\\', ':', ','); 
 val DIGITS_NO_ZERO : Rexp = RANGE(('1' to '9').toList)
 
 val KEYWORD : Rexp = "while" | "if" | "then" | "else" | "do" | "for" | "to" | "true" | "false" | "read" | "write" | "skip" 
@@ -281,8 +277,8 @@ val COMMENT : Rexp = "//" ~ (SYMBOLS | CHAR(' ') | DIGIT).% ~ ONE
 
 
 val WHILE_REGS = (("k" $ KEYWORD) | 
-                  ("o" $ OP) |
                   ("i" $ ID) | 
+                  ("o" $ OP) |
                   ("n" $ NUMBER) | 
                   ("s" $ SEMI) | 
                   ("str" $ STRING) |
@@ -304,52 +300,21 @@ val token : PartialFunction[(String, String), Token] = {
   case ("str", s) => T_STR(s)
 }
 
-// by using collect we filter out all unwanted tokens
-def tokenise(s: String) : List[Token] = 
-  lexing_simp(WHILE_REGS, s).collect(token)
+def tokenise(s: String) : List[Token] = lexing_simp(WHILE_REGS, s).collect(token)
 
 
+// Question 2
+val rexp1: Rexp = NTIMES(CHAR('a'),3) 
+lexing_simp(rexp1, "aaa")
 
-//    println("prog0 test")
-//
-    val prog0 = """// hel   lo
-    read n;"""
-    val prog1 = """read  n; write (n)"""
-    val prog2 = """
-    write "fib";
-    read n;
-    minus1 := 0;
-    minus2 := 1;
-    while n > 0 do {
-        temp := minus2;
-        minus2 := minus1 + minus2;
-        minus1 := temp;
-        n := n - 1
-    };
-    write "result";
-    write minus2
-                """
-    val prog3 = """
-    start := 001000;
-    x := start;
-    y := start;
-    z := start; while 0 < x do {
-    while 0 < y do {
-    while 0 < z do { z := z - 1 }; z := start;
-    y := y - 1
-    };
-    y := start; x := x - 1
-    } """
-    val prog4 = "0000213"
-    val prog5 = "213"
+val rexp2: Rexp = NTIMES(ALT(CHAR('a'),ONE),3) 
+lexing_simp(rexp2, "aa")
 
-    println((lexing_simp(WHILE_REGS, prog0)).filterNot{_._1 == "w"}.mkString("\n"))
-    println((lexing_simp(WHILE_REGS, prog1)).filterNot{_._1 == "w"}.mkString("\n"))
-    println((lexing_simp(WHILE_REGS, prog2)).filterNot{_._1 == "w"}.mkString("\n"))
-    println((lexing_simp(WHILE_REGS, prog3)).filterNot{_._1 == "w"}.mkString("\n"))
-    println((lexing_simp(WHILE_REGS, prog4)).filterNot{_._1 == "w"}.mkString("\n"))
-    println((lexing_simp(WHILE_REGS, prog5)).filterNot{_._1 == "w"}.mkString("\n"))
+val prog0 = "read n;"
+println(lexing_simp(WHILE_REGS, prog0))
 
+
+//Question 3
 
 val test1 = 
 """write "Fib";
@@ -366,7 +331,6 @@ write "Result";
 write minus2
 """
 
-println(tokenise(test1))
 
 val test2 = """
 start := 1000;
@@ -395,18 +359,33 @@ while (f < n / 2 + 1) do {
 }
 """
 
-   
-    // https://stackoverflow.com/questions/9913971/scala-how-can-i-get-an-escaped-representation-of-a-string
-    def esc(raw: String): String = {
-    import scala.reflect.runtime.universe._
-    Literal(Constant(raw)).toString
-    }
+val test4 = """// Collatz series
+//
+// needs writing of strings and numbers; comments
+bnd := 1;
+while bnd < 101 do {
+  write bnd;
+  write ": ";
+  n := bnd;
+  cnt := 0;
 
-    def escape_master(envl: List[(String, String)]) =
-    envl.map{ case (s1, s2) => (s1, esc(s2))}
+  while n > 1 do {
+    write n;
+    write ",";
+    if n % 2 == 0
+    then n := n / 2
+    else n := 3 * n+1;
+    cnt := cnt + 1
+  };
+  
+  write " => ";
+  write cnt;
+  write "\n";
+  bnd := bnd + 1
+}"""
+println(tokenise(test4))
 
-
-    println(escape_master(lexing_simp(WHILE_REGS, test1)).mkString("\n"))
-    println(escape_master(lexing_simp(WHILE_REGS, test2)).mkString("\n"))
-    println(escape_master(lexing_simp(WHILE_REGS, test3)).mkString("\n"))
-    println(tokenise(test3))
+println(tokenise(test1))
+println(tokenise(test2))
+println(tokenise(test3))
+println(tokenise(test4))
