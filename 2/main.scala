@@ -385,7 +385,6 @@ while bnd < 101 do {
   write "\n";
   bnd := bnd + 1
 }"""
-println(tokenise(test4))
 
 println(tokenise(test1))
 println(tokenise(test2))
