@@ -4,6 +4,8 @@
 
 /* 
  * Author: Ayan Ahmad
+ * K-Number: K19002255
+ * Email: ayan.ahmad@kcl.ac.uk
 */
 
 /* Class Definitions */
