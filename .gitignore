@@ -3,3 +3,4 @@
 metals.h2.db
 metals.lock.db
 metals.log
+*.zip
