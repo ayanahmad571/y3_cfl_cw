@@ -349,8 +349,8 @@ case class TokenParser(t : Token) extends Parser[List[Token], Token] {
   }
 }
 
-val a = T_KWD("write")
-a.parse(tokenise("write n"))
+// val a = T_KWD("write")
+// a.parse(tokenise("write n"))
 
 // Parses and extracts the string from the string token at the head of the token list if there is any
 case object AnyString extends Parser[List[Token], String] {
@@ -835,9 +835,18 @@ while (n < end) do {
 
 
 
-@arg(doc = "Tokens for fib and loops programs.")
+
+@arg(doc = "Loops test")
 @main
-def main() = {
-  println("Fib program")
+def loopter() = {
+    println("lexing Loops")
+    // Test 17 * (3+3)
+    println(AExp.parse_all(List(T_NUM(17), T_OP("*"), T_LPAREN, T_NUM(3), T_OP("+"), T_NUM(3), T_RPAREN)))
+    // Test (121 % 2)
+    // println(AExp.parse_all(List(T_LPAREN_N, T_NUM(121), T_OP("%"), T_NUM(2), T_RPAREN_N)))
+
 }
 
+@arg(doc = "All tests.")
+@main
+def all() = { loopter(); } 

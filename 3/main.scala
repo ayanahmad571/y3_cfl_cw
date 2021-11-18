@@ -371,7 +371,7 @@ implicit def TokenOps(s: Token) = new {
 
 
 // atomic parser for (tokenised) strings
-case class StrParserToken(tkn: String) extends Parser[String, String] {
+case object StrParserToken extends Parser[List[Token], String] {
   def parse(tkns: List[Token]) = tkns match {
     case T_STR(tk)::rest => Set((tk, rest))
     case _ => Set()
@@ -417,6 +417,8 @@ case class While(b: BExp, bl: Block) extends Stmt
 case class Assign(s: String, a: AExp) extends Stmt
 case class Write(s: String) extends Stmt
 case class Read(s: String) extends Stmt
+case class WriteVar(s: String) extends Stmt
+case class WriteStr(s: String) extends Stmt
 
 case class Var(s: String) extends AExp
 case class Num(i: Int) extends AExp
@@ -427,6 +429,7 @@ case object False extends BExp
 case class Bop(o: String, a1: AExp, a2: AExp) extends BExp
 case class And(b1: BExp, b2: BExp) extends BExp
 case class Or(b1: BExp, b2: BExp) extends BExp
+case class Lop(o: String , b1: BExp , b2: BExp) extends BExp
 
 
 // arithmetic expressions
@@ -446,13 +449,9 @@ lazy val Fa: Parser[List[Token], AExp] =
     IdParserToken.map(Var) || 
     NumParserToken.map(Num)
 
-// Test 17 * (3+3)
-AExp.parse_all(List(T_NUM(17), T_OP("*"), T_LPAREN_N, T_NUM(3), T_OP("+"), T_NUM(3), T_RPAREN_N))
-// Test (121 % 2)
-AExp.parse_all(List(T_LPAREN_N, T_NUM(121), T_OP("%"), T_NUM(2), T_RPAREN_N))
 
 // boolean expressions with some simple nesting
-lazy val BExp: Parser[String, BExp] = 
+lazy val BExp: Parser[List[Token], BExp] = 
    (AExp ~ T_OP("==") ~ AExp).map[BExp]{ case x ~ _ ~ z => Bop("==", x, z) } || 
    (AExp ~ T_OP("!=") ~ AExp).map[BExp]{ case x ~ _ ~ z => Bop("!=", x, z) } || 
    (AExp ~ T_OP("<") ~ AExp).map[BExp]{ case x ~ _ ~ z => Bop("<", x, z) } || 
@@ -465,140 +464,160 @@ lazy val BExp: Parser[String, BExp] =
    (T_KWD("false").map[BExp]{ _ => False }) ||
    (T_LPAREN_N ~ BExp ~ T_RPAREN_N).map[BExp]{ case _ ~ x ~ _ => x }
 
-// Test (3>3) && (17!=18)
-BExp.parse_all(List(T_LPAREN_N, T_NUM(3), T_OP(">"), T_NUM(3), T_RPAREN_N, T_OP("&&"), T_LPAREN_N, T_NUM(17), T_OP("!="), T_NUM(18), T_RPAREN_N))
-// Test (3>3) || (17!=18)
-BExp.parse_all(List(T_LPAREN_N, T_NUM(3), T_OP(">"), T_NUM(3), T_RPAREN_N, T_OP("||"), T_LPAREN_N, T_NUM(17), T_OP("!="), T_NUM(18), T_RPAREN_N))
-// Test (3>3) || (17!=18) && (true)
-BExp.parse_all(List(T_LPAREN_N, T_NUM(3), T_OP(">"), T_NUM(3), T_RPAREN_N, T_OP("||"), T_LPAREN_N, T_NUM(17), T_OP("!="), T_NUM(18), T_RPAREN_N, T_OP("&&"), T_LPAREN_N,  T_KWD("true"), T_RPAREN_N))
-// Test (2<=17) || (200 >= 300)
-BExp.parse_all(tokenise("(2<=17) || (200 >= 300)"))
 
 // a single statement 
-lazy val Stmt: Parser[String, Stmt] =
-  ((p"skip".map[Stmt]{_ => Skip }) ||
-   (IdParserToken ~ p":=" ~ AExp).map[Stmt]{ case x ~ _ ~ z => Assign(x, z) } ||
-   (p"write(" ~ IdParserToken ~ p")").map[Stmt]{ case _ ~ y ~ _ => Write(y) } ||
-   (p"read" ~ IdParserToken) ==> { case _ ~ y => Read(y) } ||
-   (p"if" ~ BExp ~ p"then" ~ Block ~ p"else" ~ Block)
-     .map[Stmt]{ case _ ~ y ~ _ ~ u ~ _ ~ w => If(y, u, w) } ||
-   (p"while" ~ BExp ~ p"do" ~ Block).map[Stmt]{ case _ ~ y ~ _ ~ w => While(y, w) })
+/* we need 4 types of writes here
+ write id
+ write "string"
+ write (id)
+ write ("string")
+*/ 
+lazy val Stmt: Parser[List[Token], Stmt] =
+  ((T_KWD("skip").map[Stmt]{_ => Skip }) ||
+   (IdParserToken ~ T_OP(":=") ~ AExp).map[Stmt]{ case x ~ _ ~ z => Assign(x, z) } ||
+   (T_KWD("write") ~ T_LPAREN_N ~ IdParserToken ~ T_RPAREN_N).map[Stmt]{ case _ ~ y ~ _ => WriteVar(y) } ||
+   (T_KWD("write") ~ StrParserToken).map[Stmt]{ case _ ~ y => WriteStr(y) } ||
+   (T_KWD("write") ~ IdParserToken).map[Stmt]{ case _~ y => WriteVar(y)} ||
+   (T_KWD("write") ~ T_LPAREN_N ~ StrParserToken ~ T_RPAREN_N).map[Stmt]{ case _ ~ _ ~ y ~ _ => WriteStr(y) } ||
+   (T_KWD("read") ~ IdParserToken).map[Stmt]{ case _ ~ y => Read(y) } ||
+   (T_KWD("if") ~ BExp ~ T_KWD("then") ~ Block ~ T_KWD("else") ~ Block)
+   .map[Stmt]{ case _ ~ y ~ _ ~ u ~ _ ~ w => If(y, u, w) } ||
+   (T_KWD("while") ~ BExp ~ T_KWD("do") ~ Block).map[Stmt]{ case _ ~ y ~ _ ~ w => While(y, w) })
  
  // Test skip
-Stmt.parse_all(List(T_KWD("skip")))
+println(Stmt.parse_all(List(T_KWD("skip"))))
 // Test x := x + 1
-Stmt.parse_all(List(T_ID("x"), T_OP(":="), T_ID("x"), T_OP("+"), T_NUM(1)))
+println(Stmt.parse_all(List(T_ID("x"), T_OP(":="), T_ID("x"), T_OP("+"), T_NUM(1))))
 // Test write x 
-Stmt.parse_all(List(T_KWD("write"), T_ID("x")))
+println(Stmt.parse_all(List(T_KWD("write"), T_ID("x"))))
 // Test write "muhahaha"
-Stmt.parse_all(List(T_KWD("write"), T_STR("muhahaha")))
+println(Stmt.parse_all(List(T_KWD("write"), T_STR("muhahaha"))))
 // Test write(x)
-Stmt.parse_all(List(T_KWD("write"), T_LPAREN_N, T_ID("x"), T_RPAREN_N))
+println(Stmt.parse_all(List(T_KWD("write"), T_LPAREN_N, T_ID("x"), T_RPAREN_N)))
 // Test write("muhahaha")
-Stmt.parse_all(List(T_KWD("write"), T_LPAREN_N, T_STR("muhahaha"), T_RPAREN_N))
+println(Stmt.parse_all(List(T_KWD("write"), T_LPAREN_N, T_STR("muhahaha"), T_RPAREN_N)))
 // Test read n
-Stmt.parse_all(List(T_KWD("read"), T_ID("n")))
+println(Stmt.parse_all(List(T_KWD("read"), T_ID("n"))))
 // Test if a == 3 then skip else a := a + 1 
-Stmt.parse_all(List(T_KWD("if"), T_ID("a"), T_OP("=="), T_NUM(3), T_KWD("then"), T_KWD("skip"), T_KWD("else"), T_ID("a"), T_OP(":="), T_ID("a"), T_OP("+"), T_NUM(1)))
+println(Stmt.parse_all(List(T_KWD("if"), T_ID("a"), T_OP("=="), T_NUM(3), T_KWD("then"), T_KWD("skip"), T_KWD("else"), T_ID("a"), T_OP(":="), T_ID("a"), T_OP("+"), T_NUM(1))))
 // Test if (a < b) then skip else a := a * b + 1
-Stmt.parse_all(List(T_KWD("if"), T_LPAREN_N, T_ID("a"), T_OP("<"), T_ID("b"), T_RPAREN_N, T_KWD("then"), T_KWD("skip"), T_KWD("else"), T_ID("a"), T_OP(":="), T_ID("a"), T_OP("*"), T_ID("b"), T_OP("+"), T_NUM(1)))
+println(Stmt.parse_all(List(T_KWD("if"), T_LPAREN_N, T_ID("a"), T_OP("<"), T_ID("b"), T_RPAREN_N, T_KWD("then"), T_KWD("skip"), T_KWD("else"), T_ID("a"), T_OP(":="), T_ID("a"), T_OP("*"), T_ID("b"), T_OP("+"), T_NUM(1))))
 // Test while a < 200 do a := a + 2
-Stmt.parse_all(List(T_KWD("while"), T_ID("a"), T_OP("<"), T_NUM(200), T_KWD("do"), T_ID("a"), T_OP(":="), T_ID("a"), T_OP("+"), T_NUM(2))) 
+println(Stmt.parse_all(List(T_KWD("while"), T_ID("a"), T_OP("<"), T_NUM(200), T_KWD("do"), T_ID("a"), T_OP(":="), T_ID("a"), T_OP("+"), T_NUM(2))))
 // Test while (a < 20) do { x := x * 2; a := a + 1 }
-Stmt.parse_all(List(T_KWD("while"), T_LPAREN_N, T_ID("a"), T_OP("<"), T_NUM(20), T_RPAREN_N, T_KWD("do"), T_LPAREN_N, T_ID("x"), T_OP(":="), T_ID("x"), T_OP("*"), T_NUM(2), T_SEMI, T_ID("a"), T_OP(":="), T_ID("a"), T_OP("+"), T_NUM(1), T_RPAREN_N))
+println(Stmt.parse_all(List(T_KWD("while"), T_LPAREN_N, T_ID("a"), T_OP("<"), T_NUM(20), T_RPAREN_N, T_KWD("do"), T_LPAREN_C, T_ID("x"), T_OP(":="), T_ID("x"), T_OP("*"), T_NUM(2), T_SEMI, T_ID("a"), T_OP(":="), T_ID("a"), T_OP("+"), T_NUM(1), T_RPAREN_C)))
 // Test while (a >= 300) do { a := 300 - 16 - 20; b := 4 - b }
-Stmt.parse_all(tokenise("while (a >= 300) do { a := 300 - 16 - 20; b := 4 - b }"))
+println(Stmt.parse_all(tokenise("while (a >= 300) do { a := 300 - 16 - 20; b := 4 - b }")))
 
 
 // statements
-lazy val Stmts: Parser[String, Block] =
-  (Stmt ~ p";" ~ Stmts).map[Block]{ case x ~ _ ~ z => x :: z } ||
+lazy val Stmts: Parser[List[Token], Block] =
+  (Stmt ~ T_SEMI ~ Stmts).map[Block]{ case x ~ _ ~ z => x :: z } ||
   (Stmt.map[Block]{ s => List(s) })
 
 // blocks (enclosed in curly braces)
-lazy val Block: Parser[String, Block] =
-  ((p"{" ~ Stmts ~ p"}").map{ case _ ~ y ~ _ => y } || 
+lazy val Block: Parser[List[Token], Block] =
+  ((T_LPAREN_C ~ Stmts ~ T_RPAREN_C).map{ case _ ~ y ~ _ => y } || 
    (Stmt.map(s => List(s))))
 
 
 // Examples
-Stmt.parse_all("x2:=5+3")
-Block.parse_all("{x:=5;y:=8}")
-Block.parse_all("if(false)then{x:=5}else{x:=10}")
+// Stmt.parse_all("x2:=5+3")
+// Block.parse_all("{x:=5;y:=8}")
+// Block.parse_all("if(false)then{x:=5}else{x:=10}")
 
 
-val fib = """n := 10;
-             minus1 := 0;
-             minus2 := 1;
-             temp := 0;
-             while (n > 0) do {
-                 temp := minus2;
-                 minus2 := minus1 + minus2;
-                 minus1 := temp;
-                 n := n - 1
-             };
-             result := minus2""".replaceAll("\\s+", "")
+// val fib = """n := 10;
+//              minus1 := 0;
+//              minus2 := 1;
+//              temp := 0;
+//              while (n > 0) do {
+//                  temp := minus2;
+//                  minus2 := minus1 + minus2;
+//                  minus1 := temp;
+//                  n := n - 1
+//              };
+//              result := minus2""".replaceAll("\\s+", "")
 
-Stmts.parse_all(fib)
-
-
-// an interpreter for the WHILE language
-type Env = Map[String, Int]
-
-def eval_aexp(a: AExp, env: Env) : Int = a match {
-  case Num(i) => i
-  case Var(s) => env(s)
-  case Aop("+", a1, a2) => eval_aexp(a1, env) + eval_aexp(a2, env)
-  case Aop("-", a1, a2) => eval_aexp(a1, env) - eval_aexp(a2, env)
-  case Aop("*", a1, a2) => eval_aexp(a1, env) * eval_aexp(a2, env)
-  case Aop("/", a1, a2) => eval_aexp(a1, env) / eval_aexp(a2, env)
-  case Aop("%", a1, a2) => eval_aexp(a1, env) % eval_aexp(a2, env)
-}
-
-def eval_bexp(b: BExp, env: Env) : Boolean = b match {
-  case True => true
-  case False => false
-  case Bop("==", a1, a2) => eval_aexp(a1, env) == eval_aexp(a2, env)
-  case Bop("!=", a1, a2) => !(eval_aexp(a1, env) == eval_aexp(a2, env))
-  case Bop(">", a1, a2) => eval_aexp(a1, env) > eval_aexp(a2, env)
-  case Bop("<", a1, a2) => eval_aexp(a1, env) < eval_aexp(a2, env)
-  case Bop("<=", a1, a2) => eval_aexp(a1, env) <= eval_aexp(a2, env)
-  case Bop(">=", a1, a2) => eval_aexp(a1, env) >= eval_aexp(a2, env)
-  case And(b1, b2) => eval_bexp(b1, env) && eval_bexp(b2, env)
-  case Or(b1, b2) => eval_bexp(b1, env) || eval_bexp(b2, env)
-}
-
-def eval_stmt(s: Stmt, env: Env) : Env = s match {
-  case Skip => env
-  case Assign(x, a) => env + (x -> eval_aexp(a, env))
-  case If(b, bl1, bl2) => if (eval_bexp(b, env)) eval_bl(bl1, env) else eval_bl(bl2, env) 
-  case While(b, bl) => 
-    if (eval_bexp(b, env)) eval_stmt(While(b, bl), eval_bl(bl, env))
-    else env
-  case Write(x) => { println(env(x)) ; env }  
-  case Read(x) => { // Dynamic read from console
-    val input = scala.io.StdIn.readInt() 
-    env + (x -> input)
-  }
-}
+// Stmts.parse_all(fib)
 
 
-def eval_bl(bl: Block, env: Env) : Env = bl match {
-  case Nil => env
-  case s::bl => eval_bl(bl, eval_stmt(s, env))
-}
+// // an interpreter for the WHILE language
+// type Env = Map[String, Int]
 
-def eval(bl: Block) : Env = eval_bl(bl, Map())
+// def eval_aexp(a: AExp, env: Env) : Int = a match {
+//   case Num(i) => i
+//   case Var(s) => env(s)
+//   case Aop("+", a1, a2) => eval_aexp(a1, env) + eval_aexp(a2, env)
+//   case Aop("-", a1, a2) => eval_aexp(a1, env) - eval_aexp(a2, env)
+//   case Aop("*", a1, a2) => eval_aexp(a1, env) * eval_aexp(a2, env)
+//   case Aop("/", a1, a2) => eval_aexp(a1, env) / eval_aexp(a2, env)
+//   case Aop("%", a1, a2) => eval_aexp(a1, env) % eval_aexp(a2, env)
+// }
 
-// parse + evaluate fib program; then lookup what is
-// stored under the variable "result" 
-println(eval(Stmts.parse_all(fib).head)("result"))
+// def eval_bexp(b: BExp, env: Env) : Boolean = b match {
+//   case True => true
+//   case False => false
+//   case Bop("==", a1, a2) => eval_aexp(a1, env) == eval_aexp(a2, env)
+//   case Bop("!=", a1, a2) => !(eval_aexp(a1, env) == eval_aexp(a2, env))
+//   case Bop(">", a1, a2) => eval_aexp(a1, env) > eval_aexp(a2, env)
+//   case Bop("<", a1, a2) => eval_aexp(a1, env) < eval_aexp(a2, env)
+//   case Bop("<=", a1, a2) => eval_aexp(a1, env) <= eval_aexp(a2, env)
+//   case Bop(">=", a1, a2) => eval_aexp(a1, env) >= eval_aexp(a2, env)
+//   case And(b1, b2) => eval_bexp(b1, env) && eval_bexp(b2, env)
+//   case Or(b1, b2) => eval_bexp(b1, env) || eval_bexp(b2, env)
+// }
+
+// def eval_stmt(s: Stmt, env: Env) : Env = s match {
+//   case Skip => env
+//   case Assign(x, a) => env + (x -> eval_aexp(a, env))
+//   case If(b, bl1, bl2) => if (eval_bexp(b, env)) eval_bl(bl1, env) else eval_bl(bl2, env) 
+//   case While(b, bl) => 
+//     if (eval_bexp(b, env)) eval_stmt(While(b, bl), eval_bl(bl, env))
+//     else env
+//   case Write(x) => { println(env(x)) ; env }  
+//   case Read(x) => { // Dynamic read from console
+//     val input = scala.io.StdIn.readInt() 
+//     env + (x -> input)
+//   }
+// }
+
+
+// def eval_bl(bl: Block, env: Env) : Env = bl match {
+//   case Nil => env
+//   case s::bl => eval_bl(bl, eval_stmt(s, env))
+// }
+
+// def eval(bl: Block) : Env = eval_bl(bl, Map())
+
+// // parse + evaluate fib program; then lookup what is
+// // stored under the variable "result" 
+// println(eval(Stmts.parse_all(fib).head)("result"))
 
 
 
-@arg(doc = "Tokens for fib and loops programs.")
+
+@arg(doc = "Loops test")
 @main
-def main() = {
-  println("Fib program")
+def loops() = {
+    println("lexing Loops")
+    // Test 17 * (3+3)
+    println(AExp.parse_all(List(T_NUM(17), T_OP("*"), T_LPAREN_N, T_NUM(3), T_OP("+"), T_NUM(3), T_RPAREN_N)))
+    // Test (121 % 2)
+    println(AExp.parse_all(List(T_LPAREN_N, T_NUM(121), T_OP("%"), T_NUM(2), T_RPAREN_N)))
+
+// Test (3>3) && (17!=18)
+println(BExp.parse_all(List(T_LPAREN_N, T_NUM(3), T_OP(">"), T_NUM(3), T_RPAREN_N, T_OP("&&"), T_LPAREN_N, T_NUM(17), T_OP("!="), T_NUM(18), T_RPAREN_N)))
+// Test (3>3) || (17!=18)
+println(BExp.parse_all(List(T_LPAREN_N, T_NUM(3), T_OP(">"), T_NUM(3), T_RPAREN_N, T_OP("||"), T_LPAREN_N, T_NUM(17), T_OP("!="), T_NUM(18), T_RPAREN_N)))
+// Test (3>3) || (17!=18) && (true)
+println(BExp.parse_all(List(T_LPAREN_N, T_NUM(3), T_OP(">"), T_NUM(3), T_RPAREN_N, T_OP("||"), T_LPAREN_N, T_NUM(17), T_OP("!="), T_NUM(18), T_RPAREN_N, T_OP("&&"), T_LPAREN_N,  T_KWD("true"), T_RPAREN_N)))
+// Test (2<=17) || (200 >= 300)
+println(BExp.parse_all(tokenise("(2<=17) || (200 >= 300)")))
 }
+
+@arg(doc = "All tests.")
+@main
+def all() = { loops(); } 
+
 
