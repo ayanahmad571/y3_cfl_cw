@@ -593,6 +593,7 @@ def q1() = {
 @arg(doc = "Question 2 Tests")
 @main
 def q2() = {
+    
     println("_____Q2 Tests______");
 
     val fig1 = """write "Fib";
