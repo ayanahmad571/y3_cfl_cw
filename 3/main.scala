@@ -220,7 +220,7 @@ def mkeps(r: Rexp) : Val = r match {
   case PLUS(_) => Plus(Nil)
   case OPTIONAL(r) => 
     if (nullable(r)) Optional(mkeps(r)) else Optional(Empty) // Checking for the case where r is nullable
-  case NTIMES(r,n) => Ntimes(List.fill(n)(mkeps(r))) // Filling the list N times
+  case NTIMES(r,n) => Stars(List.fill(n)(mkeps(r))) // Filling the list N times
   
 
 }
@@ -237,7 +237,7 @@ def inj(r: Rexp, c: Char, v: Val) : Val = (r, v) match {
 
   case (OPTIONAL(r), v) => Optional(inj(r, c, v))
   case (PLUS(r), Sequ(v1, Stars(vs))) => Plus(inj(r, c, v1)::vs)
-  case (NTIMES(r, n), Sequ(v1, Ntimes(vs))) => Ntimes(inj(r, c, v1)::vs)
+  case (NTIMES(r, n), Sequ(v1, Stars(vs))) => Stars(inj(r, c, v1)::vs)
   case (RECD(x, r1), _) => Rec(x, inj(r1, c, v))
 }
 
@@ -349,7 +349,7 @@ case class TokenParser(tkn : Token) extends Parser[List[Token], Token] {
 
 // more convenient syntax for parser combinators
 
-implicit def token2TokenParser(t : Token) = TokenParser(t)
+implicit def tknParseries(t : Token) = TokenParser(t)
 
 implicit def ParserOps[I : IsSeq, T](p: Parser[I, T]) = new {
   def ||(q : => Parser[I, T]) = new AltParser[I, T](p, q)
@@ -361,11 +361,6 @@ implicit def TokenOps(s: Token) = new {
     def || (q : => Parser[List[Token], Token]) = new AltParser[List[Token], Token](s, q)
     def ~[S](q : => Parser[List[Token], S]) = new SeqParser[List[Token], Token, S](s, q)
     def map[S] (f: => Token => S) = new MapParser[List[Token], Token, S](s, f)
-//   def || (r: Token) = new AltParser[List[Token], Token](s, r)
-//   def ==>[S] (f: => Token => S) = new MapParser[List[Token], Token, S](s, f)
-//   def ~[S](q : => Parser[List[Token], S]) = new SeqParser[List[Token], Token, S](s, q)
-//   def ~(r: Parser[List[Token], Token]) = new SeqParser[List[Token], Token, Token](s, r)
-  
 }
 
 
@@ -378,7 +373,6 @@ case object StrParserToken extends Parser[List[Token], String] {
   }
 }
 
-// StrParserToken.parse(List(T_STR("sing"), T_STR("song")))
 
 // atomic parser for (tokenised) IDs
 case object IdParserToken extends Parser[List[Token], String] {
@@ -388,7 +382,6 @@ case object IdParserToken extends Parser[List[Token], String] {
   }
 }
 
-// IdParserToken.parse(List(T_ID("K88"),T_KWD("read")))
 
 
 // atomic parser for numbers (transformed into ints)
@@ -398,9 +391,6 @@ case object NumParserToken extends Parser[List[Token], Int] {
     case _ => Set()
   }
 }
-
-// NumParserToken.parse(List(T_NUM(88),T_KWD("read")))
-
 
 
 
@@ -484,31 +474,6 @@ lazy val Stmt: Parser[List[Token], Stmt] =
    .map[Stmt]{ case _ ~ y ~ _ ~ u ~ _ ~ w => If(y, u, w) } ||
    (T_KWD("while") ~ BExp ~ T_KWD("do") ~ Block).map[Stmt]{ case _ ~ y ~ _ ~ w => While(y, w) })
  
- // Test skip
-println(Stmt.parse_all(List(T_KWD("skip"))))
-// Test x := x + 1
-println(Stmt.parse_all(List(T_ID("x"), T_OP(":="), T_ID("x"), T_OP("+"), T_NUM(1))))
-// Test write x 
-println(Stmt.parse_all(List(T_KWD("write"), T_ID("x"))))
-// Test write "muhahaha"
-println(Stmt.parse_all(List(T_KWD("write"), T_STR("muhahaha"))))
-// Test write(x)
-println(Stmt.parse_all(List(T_KWD("write"), T_LPAREN_N, T_ID("x"), T_RPAREN_N)))
-// Test write("muhahaha")
-println(Stmt.parse_all(List(T_KWD("write"), T_LPAREN_N, T_STR("muhahaha"), T_RPAREN_N)))
-// Test read n
-println(Stmt.parse_all(List(T_KWD("read"), T_ID("n"))))
-// Test if a == 3 then skip else a := a + 1 
-println(Stmt.parse_all(List(T_KWD("if"), T_ID("a"), T_OP("=="), T_NUM(3), T_KWD("then"), T_KWD("skip"), T_KWD("else"), T_ID("a"), T_OP(":="), T_ID("a"), T_OP("+"), T_NUM(1))))
-// Test if (a < b) then skip else a := a * b + 1
-println(Stmt.parse_all(List(T_KWD("if"), T_LPAREN_N, T_ID("a"), T_OP("<"), T_ID("b"), T_RPAREN_N, T_KWD("then"), T_KWD("skip"), T_KWD("else"), T_ID("a"), T_OP(":="), T_ID("a"), T_OP("*"), T_ID("b"), T_OP("+"), T_NUM(1))))
-// Test while a < 200 do a := a + 2
-println(Stmt.parse_all(List(T_KWD("while"), T_ID("a"), T_OP("<"), T_NUM(200), T_KWD("do"), T_ID("a"), T_OP(":="), T_ID("a"), T_OP("+"), T_NUM(2))))
-// Test while (a < 20) do { x := x * 2; a := a + 1 }
-println(Stmt.parse_all(List(T_KWD("while"), T_LPAREN_N, T_ID("a"), T_OP("<"), T_NUM(20), T_RPAREN_N, T_KWD("do"), T_LPAREN_C, T_ID("x"), T_OP(":="), T_ID("x"), T_OP("*"), T_NUM(2), T_SEMI, T_ID("a"), T_OP(":="), T_ID("a"), T_OP("+"), T_NUM(1), T_RPAREN_C)))
-// Test while (a >= 300) do { a := 300 - 16 - 20; b := 4 - b }
-println(Stmt.parse_all(tokenise("while (a >= 300) do { a := 300 - 16 - 20; b := 4 - b }")))
-
 
 // statements
 lazy val Stmts: Parser[List[Token], Block] =
@@ -521,103 +486,320 @@ lazy val Block: Parser[List[Token], Block] =
    (Stmt.map(s => List(s))))
 
 
-// Examples
-// Stmt.parse_all("x2:=5+3")
-// Block.parse_all("{x:=5;y:=8}")
-// Block.parse_all("if(false)then{x:=5}else{x:=10}")
 
+// an interpreter for the WHILE language
+type Env = Map[String, Int]
 
-// val fib = """n := 10;
-//              minus1 := 0;
-//              minus2 := 1;
-//              temp := 0;
-//              while (n > 0) do {
-//                  temp := minus2;
-//                  minus2 := minus1 + minus2;
-//                  minus1 := temp;
-//                  n := n - 1
-//              };
-//              result := minus2""".replaceAll("\\s+", "")
+def eval_aexp(a: AExp, env: Env) : Int = a match {
+  case Num(i) => i
+  case Var(s) => env(s)
+  case Aop("+", a1, a2) => eval_aexp(a1, env) + eval_aexp(a2, env)
+  case Aop("-", a1, a2) => eval_aexp(a1, env) - eval_aexp(a2, env)
+  case Aop("*", a1, a2) => eval_aexp(a1, env) * eval_aexp(a2, env)
+  case Aop("/", a1, a2) => eval_aexp(a1, env) / eval_aexp(a2, env)
+  case Aop("%", a1, a2) => eval_aexp(a1, env) % eval_aexp(a2, env)
+}
 
-// Stmts.parse_all(fib)
+def eval_bexp(b: BExp, env: Env) : Boolean = b match {
+  case True => true
+  case False => false
+  case Bop("==", a1, a2) => eval_aexp(a1, env) == eval_aexp(a2, env)
+  case Bop("!=", a1, a2) => !(eval_aexp(a1, env) == eval_aexp(a2, env))
+  case Bop(">", a1, a2) => eval_aexp(a1, env) > eval_aexp(a2, env)
+  case Bop("<", a1, a2) => eval_aexp(a1, env) < eval_aexp(a2, env)
+  case Bop("<=", a1, a2) => eval_aexp(a1, env) <= eval_aexp(a2, env)
+  case Bop(">=", a1, a2) => eval_aexp(a1, env) >= eval_aexp(a2, env)
+  case And(b1, b2) => eval_bexp(b1, env) && eval_bexp(b2, env)
+  case Or(b1, b2) => eval_bexp(b1, env) || eval_bexp(b2, env)
+}
 
-
-// // an interpreter for the WHILE language
-// type Env = Map[String, Int]
-
-// def eval_aexp(a: AExp, env: Env) : Int = a match {
-//   case Num(i) => i
-//   case Var(s) => env(s)
-//   case Aop("+", a1, a2) => eval_aexp(a1, env) + eval_aexp(a2, env)
-//   case Aop("-", a1, a2) => eval_aexp(a1, env) - eval_aexp(a2, env)
-//   case Aop("*", a1, a2) => eval_aexp(a1, env) * eval_aexp(a2, env)
-//   case Aop("/", a1, a2) => eval_aexp(a1, env) / eval_aexp(a2, env)
-//   case Aop("%", a1, a2) => eval_aexp(a1, env) % eval_aexp(a2, env)
+def eval_stmt(s: Stmt, env: Env) : Env = s match {
+    case Skip => env
+    case Assign(x, a) => env + (x -> eval_aexp(a, env))
+    case If(b, bl1, bl2) => if (eval_bexp(b, env)) eval_bl(bl1, env) else eval_bl(bl2, env) 
+    case While(b, bl) => 
+    if (eval_bexp(b, env)) eval_stmt(While(b, bl), eval_bl(bl, env))
+    else env
+// case WriteStr(x) => x match { 
+// case "\\n" => {print("\n") ; env} 
+// case _ => { print(x) ; env } 
 // }
-
-// def eval_bexp(b: BExp, env: Env) : Boolean = b match {
-//   case True => true
-//   case False => false
-//   case Bop("==", a1, a2) => eval_aexp(a1, env) == eval_aexp(a2, env)
-//   case Bop("!=", a1, a2) => !(eval_aexp(a1, env) == eval_aexp(a2, env))
-//   case Bop(">", a1, a2) => eval_aexp(a1, env) > eval_aexp(a2, env)
-//   case Bop("<", a1, a2) => eval_aexp(a1, env) < eval_aexp(a2, env)
-//   case Bop("<=", a1, a2) => eval_aexp(a1, env) <= eval_aexp(a2, env)
-//   case Bop(">=", a1, a2) => eval_aexp(a1, env) >= eval_aexp(a2, env)
-//   case And(b1, b2) => eval_bexp(b1, env) && eval_bexp(b2, env)
-//   case Or(b1, b2) => eval_bexp(b1, env) || eval_bexp(b2, env)
-// }
-
-// def eval_stmt(s: Stmt, env: Env) : Env = s match {
-//   case Skip => env
-//   case Assign(x, a) => env + (x -> eval_aexp(a, env))
-//   case If(b, bl1, bl2) => if (eval_bexp(b, env)) eval_bl(bl1, env) else eval_bl(bl2, env) 
-//   case While(b, bl) => 
-//     if (eval_bexp(b, env)) eval_stmt(While(b, bl), eval_bl(bl, env))
-//     else env
-//   case Write(x) => { println(env(x)) ; env }  
-//   case Read(x) => { // Dynamic read from console
-//     val input = scala.io.StdIn.readInt() 
-//     env + (x -> input)
-//   }
-// }
+    case WriteStr(x) => { println(x) ; env }
+    case WriteVar(x) => { println(env(x)) ; env }
+    case Read(x) => {
+        println("Waiting for User Input....")
+        //https://stackoverflow.com/questions/5055349/how-to-take-input-from-a-user-in-scala/42968214
+        val input = scala.io.StdIn.readInt() 
+        env + (x -> input)
+    }
+}
 
 
-// def eval_bl(bl: Block, env: Env) : Env = bl match {
-//   case Nil => env
-//   case s::bl => eval_bl(bl, eval_stmt(s, env))
-// }
+def eval_bl(bl: Block, env: Env) : Env = bl match {
+  case Nil => env
+  case s::bl => eval_bl(bl, eval_stmt(s, env))
+}
 
-// def eval(bl: Block) : Env = eval_bl(bl, Map())
+def eval(bl: Block) : Env = eval_bl(bl, Map())
 
-// // parse + evaluate fib program; then lookup what is
-// // stored under the variable "result" 
-// println(eval(Stmts.parse_all(fib).head)("result"))
+// for timing purposes - From PEP from Year 2
+def time_needed[T](code: => T) = {
+
+  val start = System.nanoTime()
+  val finalRes =  code
+  val end = System.nanoTime()
+  println("Code Run Time: " + (end - start)/(1.0e9) + " s")
+  finalRes
+  println("________________")
+
+}
 
 
 
-
-@arg(doc = "Loops test")
+@arg(doc = "Question 1 Tests")
 @main
-def loops() = {
-    println("lexing Loops")
-    // Test 17 * (3+3)
-    println(AExp.parse_all(List(T_NUM(17), T_OP("*"), T_LPAREN_N, T_NUM(3), T_OP("+"), T_NUM(3), T_RPAREN_N)))
-    // Test (121 % 2)
-    println(AExp.parse_all(List(T_LPAREN_N, T_NUM(121), T_OP("%"), T_NUM(2), T_RPAREN_N)))
+def q1() = {
+    println("_____Q1 Tests______");
+    StrParserToken.parse(List(T_STR("sing"), T_STR("song")))
+    IdParserToken.parse(List(T_ID("K190"),T_KWD("read")))
+    NumParserToken.parse(List(T_NUM(190),T_KWD("read")))
 
-// Test (3>3) && (17!=18)
-println(BExp.parse_all(List(T_LPAREN_N, T_NUM(3), T_OP(">"), T_NUM(3), T_RPAREN_N, T_OP("&&"), T_LPAREN_N, T_NUM(17), T_OP("!="), T_NUM(18), T_RPAREN_N)))
-// Test (3>3) || (17!=18)
-println(BExp.parse_all(List(T_LPAREN_N, T_NUM(3), T_OP(">"), T_NUM(3), T_RPAREN_N, T_OP("||"), T_LPAREN_N, T_NUM(17), T_OP("!="), T_NUM(18), T_RPAREN_N)))
-// Test (3>3) || (17!=18) && (true)
-println(BExp.parse_all(List(T_LPAREN_N, T_NUM(3), T_OP(">"), T_NUM(3), T_RPAREN_N, T_OP("||"), T_LPAREN_N, T_NUM(17), T_OP("!="), T_NUM(18), T_RPAREN_N, T_OP("&&"), T_LPAREN_N,  T_KWD("true"), T_RPAREN_N)))
-// Test (2<=17) || (200 >= 300)
-println(BExp.parse_all(tokenise("(2<=17) || (200 >= 300)")))
+    // 5 * (10)
+    println(AExp.parse_all(List(T_NUM(5), T_OP("*"), T_LPAREN_N, T_NUM(10), T_RPAREN_N)))
+
+    // 8 * (5-5)
+    println(AExp.parse_all(List(T_NUM(8), T_OP("*"), T_LPAREN_N, T_NUM(5), T_OP("-"), T_NUM(5), T_RPAREN_N)))
+
+    // (1>2) || ((5>=6) && ((false || true) && ((1!=2) && (5<=6))))
+    println(BExp.parse_all(List(T_LPAREN_N, T_NUM(1), T_OP(">"), T_NUM(2), 
+    T_RPAREN_N, T_OP("||"), T_LPAREN_N, T_LPAREN_N, T_NUM(5), T_OP(">="), 
+    T_NUM(6), T_RPAREN_N, T_OP("&&"), T_LPAREN_N, T_LPAREN_N, T_NUM(3), 
+    T_OP("<"), T_NUM(4), T_RPAREN_N, T_OP("&&"), T_LPAREN_N, T_LPAREN_N,
+    T_NUM(1), T_OP("!="), T_NUM(2), T_RPAREN_N, T_OP("&&"), T_LPAREN_N, T_NUM(5), 
+    T_OP("<="), T_NUM(6), T_RPAREN_N, T_RPAREN_N, T_RPAREN_N, T_RPAREN_N)))
+
+    // Test skip
+    println(Stmt.parse_all(List(T_KWD("skip"))))
+
+    // Test x := x + 1
+    println(Stmt.parse_all(List(T_ID("x"), T_OP(":="), T_ID("x"), T_OP("+"), T_NUM(10))))
+
+    // Test while (a < 5) do { b := b + 1; a := a + 1 }
+    println(Stmt.parse_all(List(T_KWD("while"), T_LPAREN_N, T_ID("a"), T_OP("<"), T_NUM(5), T_RPAREN_N, T_KWD("do"), T_LPAREN_C, T_ID("b"), T_OP(":="), T_ID("b"), T_OP("+"), T_NUM(1), T_SEMI, T_ID("a"), T_OP(":="), T_ID("a"), T_OP("+"), T_NUM(1), T_RPAREN_C)))
+
+}
+
+
+@arg(doc = "Question 2 Tests")
+@main
+def q2() = {
+    println("_____Q2 Tests______");
+
+    val fig1 = """write "Fib";
+    read n;
+    minus1 := 0;
+    minus2 := 1;
+    while n > 0 do {
+        temp := minus2;
+        minus2 := minus1 + minus2;
+        minus1 := temp;
+        n := n - 1
+    };
+    write "Result";
+    write minus2"""
+
+    val fig2 = """start := 1000;
+    x := start;
+    y := start;
+    z := start;
+    while 0 < x do {
+        while 0 < y do {
+        while 0 < z do { z := z - 1 };
+        z := start;
+        y := y - 1
+        };
+        y := start;
+        x := x - 1
+    }"""
+
+    val fig3 = """// prints out prime numbers from 2 to 100
+    end := 100;
+    n := 2;
+    while (n < end) do {
+    f := 2;
+    tmp := 0;
+    while ((f < n / 2 + 1) && (tmp == 0)) do {
+    if ((n / f) * f == n) then { tmp := 1 } else { skip };
+    f := f + 1
+    };
+    if (tmp == 0) then { write(n) } else { skip };
+    n := n + 1
+    }"""
+
+    val fig4 = """// Collatz series
+    //
+    // needs writing of strings and numbers; comments
+    bnd := 1;
+    while bnd < 101 do {
+    write bnd;
+    write ": ";
+    n := bnd;
+    cnt := 0;
+    while n > 1 do {
+    write n;
+    write ",";
+    if n % 2 == 0
+    then n := n / 2
+    else n := 3 * n+1;
+    cnt := cnt + 1
+    };
+    write " => ";
+    write cnt;
+    write "\n";
+    bnd := bnd + 1
+    }"""
+
+    println("__________Fib Parse Tree__________")
+    println(Stmts.parse_all(tokenise(fig1)))
+    println("__________Loops Parse Tree__________")
+    println(Stmts.parse_all(tokenise(fig2)))
+    println("__________Primes Parse Tree__________")
+    println(Stmts.parse_all(tokenise(fig3)))
+    println("__________Collatz Parse Tree__________")
+    println(Stmts.parse_all(tokenise(fig4)))
+    println("__________Additional Parse Tree__________")
+    println(Stmts.parse_all(tokenise("if (a < b) then skip else a := a * b + 1")))
+
+}
+
+
+@arg(doc = "Question 3 Tests")
+@main
+def q3() = {
+
+    println("_____Q3 Tests______");
+
+    val fig1 = """write "Fib";
+    read n;
+    minus1 := 0;
+    minus2 := 1;
+    while n > 0 do {
+        temp := minus2;
+        minus2 := minus1 + minus2;
+        minus1 := temp;
+        n := n - 1
+    };
+    write "Result";
+    write minus2"""
+
+    val fig2 = """start := 100;
+    x := start;
+    y := start;
+    z := start;
+    while 0 < x do {
+        while 0 < y do {
+        while 0 < z do { z := z - 1 };
+        z := start;
+        y := y - 1
+        };
+        y := start;
+        x := x - 1
+    }"""
+
+    val fig3 = """// prints out prime numbers from 2 to 100
+    end := 100;
+    n := 2;
+    while (n < end) do {
+    f := 2;
+    tmp := 0;
+    while ((f < n / 2 + 1) && (tmp == 0)) do {
+    if ((n / f) * f == n) then { tmp := 1 } else { skip };
+    f := f + 1
+    };
+    if (tmp == 0) then { write(n) } else { skip };
+    n := n + 1
+    }"""
+
+    val fig4 = """// Collatz series
+    //
+    // needs writing of strings and numbers; comments
+    bnd := 1;
+    while bnd < 101 do {
+    write bnd;
+    write ": ";
+    n := bnd;
+    cnt := 0;
+    while n > 1 do {
+    write n;
+    write ",";
+    if n % 2 == 0
+    then n := n / 2
+    else n := 3 * n+1;
+    cnt := cnt + 1
+    };
+    write " => ";
+    write cnt;
+    write "\n";
+    bnd := bnd + 1
+    }"""
+
+    val fig2_500 = """start := 500;
+    x := start;
+    y := start;
+    z := start;
+    while 0 < x do {
+        while 0 < y do {
+        while 0 < z do { z := z - 1 };
+        z := start;
+        y := y - 1
+        };
+        y := start;
+        x := x - 1
+    }"""
+
+    val fig2_800 = """start := 800;
+    x := start;
+    y := start;
+    z := start;
+    while 0 < x do {
+        while 0 < y do {
+        while 0 < z do { z := z - 1 };
+        z := start;
+        y := y - 1
+        };
+        y := start;
+        x := x - 1
+    }"""
+
+// Test Without Time
+// println(eval(Stmts.parse_all(tokenise(fig1)).head))
+// println(eval(Stmts.parse_all(tokenise(fig2)).head))
+// println(eval(Stmts.parse_all(tokenise(fig3)).head))
+// println(eval(Stmts.parse_all(tokenise(fig4)).head))
+
+
+
+//Test with Time
+time_needed(eval(Stmts.parse_all(tokenise(fig1)).head))
+time_needed(eval(Stmts.parse_all(tokenise(fig3)).head))
+time_needed(eval(Stmts.parse_all(tokenise(fig4)).head))
+
+println("Loop Program - start: 100")
+time_needed(eval(Stmts.parse_all(tokenise(fig2)).head))
+
+
+println("Loop Program - start: 500")
+time_needed(eval(Stmts.parse_all(tokenise(fig2_500)).head))
+
+println("Loop Program - start: 800")
+time_needed(eval(Stmts.parse_all(tokenise(fig2_800)).head))
+
 }
 
 @arg(doc = "All tests.")
 @main
-def all() = { loops(); } 
-
-
+def all() = { 
+    q1(); 
+    q2(); 
+    q3(); 
+} 
