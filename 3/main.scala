@@ -347,8 +347,6 @@ case class TokenParser(tkn : Token) extends Parser[List[Token], Token] {
   }
 }
 
-// more convenient syntax for parser combinators
-
 implicit def tknParser(t : Token) = TokenParser(t)
 
 implicit def ParserOps[I : IsSeq, T](p: Parser[I, T]) = new {
@@ -461,15 +459,20 @@ lazy val BExp: Parser[List[Token], BExp] =
  write "string"
  write (id)
  write ("string")
+
+ and 2 types of reads
+ read n
+ read (n)
 */ 
 lazy val Stmt: Parser[List[Token], Stmt] =
   ((T_KWD("skip").map[Stmt]{_ => Skip }) ||
    (IdParserToken ~ T_OP(":=") ~ AExp).map[Stmt]{ case x ~ _ ~ z => Assign(x, z) } ||
-   (T_KWD("write") ~ T_LPAREN_N ~ IdParserToken ~ T_RPAREN_N).map[Stmt]{ case _ ~ y ~ _ => WriteVar(y) } ||
+   (T_KWD("write") ~ T_LPAREN_N ~ IdParserToken ~ T_RPAREN_N).map[Stmt]{ case _ ~ _ ~ y ~ _ => { println(t); WriteVar(y)} } ||
    (T_KWD("write") ~ StrParserToken).map[Stmt]{ case _ ~ y => WriteStr(y) } ||
    (T_KWD("write") ~ IdParserToken).map[Stmt]{ case _~ y => WriteVar(y)} ||
    (T_KWD("write") ~ T_LPAREN_N ~ StrParserToken ~ T_RPAREN_N).map[Stmt]{ case _ ~ _ ~ y ~ _ => WriteStr(y) } ||
    (T_KWD("read") ~ IdParserToken).map[Stmt]{ case _ ~ y => Read(y) } ||
+   (T_KWD("read") ~ T_LPAREN_N ~ IdParserToken ~ T_RPAREN_N).map[Stmt]{ case _ ~ _ ~ y ~ _ => Read(y) } ||
    (T_KWD("if") ~ BExp ~ T_KWD("then") ~ Block ~ T_KWD("else") ~ Block)
    .map[Stmt]{ case _ ~ y ~ _ ~ u ~ _ ~ w => If(y, u, w) } ||
    (T_KWD("while") ~ BExp ~ T_KWD("do") ~ Block).map[Stmt]{ case _ ~ y ~ _ ~ w => While(y, w) })
@@ -517,13 +520,7 @@ def eval_stmt(s: Stmt, env: Env) : Env = s match {
     case Skip => env
     case Assign(x, a) => env + (x -> eval_aexp(a, env))
     case If(b, bl1, bl2) => if (eval_bexp(b, env)) eval_bl(bl1, env) else eval_bl(bl2, env) 
-    case While(b, bl) => 
-    if (eval_bexp(b, env)) eval_stmt(While(b, bl), eval_bl(bl, env))
-    else env
-// case WriteStr(x) => x match { 
-// case "\\n" => {print("\n") ; env} 
-// case _ => { print(x) ; env } 
-// }
+    case While(b, bl) => if (eval_bexp(b, env)) eval_stmt(While(b, bl), eval_bl(bl, env)) else env
     case WriteStr(x) => { println(x) ; env }
     case WriteVar(x) => { println(env(x)) ; env }
     case Read(x) => {
@@ -773,27 +770,27 @@ def q3() = {
         x := x - 1
     }"""
 
-// Test Without Time
-// println(eval(Stmts.parse_all(tokenise(fig1)).head))
-// println(eval(Stmts.parse_all(tokenise(fig2)).head))
-// println(eval(Stmts.parse_all(tokenise(fig3)).head))
-// println(eval(Stmts.parse_all(tokenise(fig4)).head))
+    // Test Without Time
+    // println(eval(Stmts.parse_all(tokenise(fig1)).head))
+    // println(eval(Stmts.parse_all(tokenise(fig2)).head))
+    // println(eval(Stmts.parse_all(tokenise(fig3)).head))
+    // println(eval(Stmts.parse_all(tokenise(fig4)).head))
 
 
-//Test with Time
-time_needed(eval(Stmts.parse_all(tokenise(fig1)).head))
-time_needed(eval(Stmts.parse_all(tokenise(fig3)).head))
-time_needed(eval(Stmts.parse_all(tokenise(fig4)).head))
+    //Test with Time
+    time_needed(eval(Stmts.parse_all(tokenise(fig1)).head))
+    time_needed(eval(Stmts.parse_all(tokenise(fig3)).head))
+    time_needed(eval(Stmts.parse_all(tokenise(fig4)).head))
 
-println("Loop Program - start: 100")
-time_needed(eval(Stmts.parse_all(tokenise(fig2)).head))
+    println("Loop Program - start: 100")
+    time_needed(eval(Stmts.parse_all(tokenise(fig2)).head))
 
 
-println("Loop Program - start: 500")
-time_needed(eval(Stmts.parse_all(tokenise(fig2_500)).head))
+    println("Loop Program - start: 500")
+    time_needed(eval(Stmts.parse_all(tokenise(fig2_500)).head))
 
-println("Loop Program - start: 800")
-time_needed(eval(Stmts.parse_all(tokenise(fig2_800)).head))
+    println("Loop Program - start: 800")
+    time_needed(eval(Stmts.parse_all(tokenise(fig2_800)).head))
 
 }
 
