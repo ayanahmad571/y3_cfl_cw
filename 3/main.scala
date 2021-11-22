@@ -467,7 +467,7 @@ lazy val BExp: Parser[List[Token], BExp] =
 lazy val Stmt: Parser[List[Token], Stmt] =
   ((T_KWD("skip").map[Stmt]{_ => Skip }) ||
    (IdParserToken ~ T_OP(":=") ~ AExp).map[Stmt]{ case x ~ _ ~ z => Assign(x, z) } ||
-   (T_KWD("write") ~ T_LPAREN_N ~ IdParserToken ~ T_RPAREN_N).map[Stmt]{ case _ ~ _ ~ y ~ _ => { println(t); WriteVar(y)} } ||
+   (T_KWD("write") ~ T_LPAREN_N ~ IdParserToken ~ T_RPAREN_N).map[Stmt]{ case _ ~ _ ~ y ~ _ => { WriteVar(y)} } ||
    (T_KWD("write") ~ StrParserToken).map[Stmt]{ case _ ~ y => WriteStr(y) } ||
    (T_KWD("write") ~ IdParserToken).map[Stmt]{ case _~ y => WriteVar(y)} ||
    (T_KWD("write") ~ T_LPAREN_N ~ StrParserToken ~ T_RPAREN_N).map[Stmt]{ case _ ~ _ ~ y ~ _ => WriteStr(y) } ||
