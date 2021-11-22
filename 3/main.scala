@@ -122,7 +122,7 @@ def der(c: Char, r: Rexp) : Rexp = r match {
 	case OPTIONAL(r) => der(c, r)
 	case NTIMES(r, n) => if (n == 0) ZERO else SEQ(der(c, r), NTIMES(r, n - 1))
 	case NOT(r) => NOT(der(c, r))
-  case RECD(_, r1) => der(c, r1)
+    case RECD(_, r1) => der(c, r1)
 	case CFUN(f) => if(f(c)) ONE else ZERO
 }
 /* End Der Function */
@@ -349,7 +349,7 @@ case class TokenParser(tkn : Token) extends Parser[List[Token], Token] {
 
 // more convenient syntax for parser combinators
 
-implicit def tknParseries(t : Token) = TokenParser(t)
+implicit def tknParser(t : Token) = TokenParser(t)
 
 implicit def ParserOps[I : IsSeq, T](p: Parser[I, T]) = new {
   def ||(q : => Parser[I, T]) = new AltParser[I, T](p, q)
@@ -357,10 +357,10 @@ implicit def ParserOps[I : IsSeq, T](p: Parser[I, T]) = new {
   def map[S](f: => T => S) = new MapParser[I, T, S](p, f)
 }
 
-implicit def TokenOps(s: Token) = new {
-    def || (q : => Parser[List[Token], Token]) = new AltParser[List[Token], Token](s, q)
-    def ~[S](q : => Parser[List[Token], S]) = new SeqParser[List[Token], Token, S](s, q)
-    def map[S] (f: => Token => S) = new MapParser[List[Token], Token, S](s, f)
+implicit def TokenOps(p: Token) = new {
+    def || (q : => Parser[List[Token], Token]) = new AltParser[List[Token], Token](p, q)
+    def ~[S](q : => Parser[List[Token], S]) = new SeqParser[List[Token], Token, S](p, q)
+    def map[S] (f: => Token => S) = new MapParser[List[Token], Token, S](p, f)
 }
 
 
@@ -527,6 +527,7 @@ def eval_stmt(s: Stmt, env: Env) : Env = s match {
     case WriteStr(x) => { println(x) ; env }
     case WriteVar(x) => { println(env(x)) ; env }
     case Read(x) => {
+        // Added for the sake of ease
         println("Waiting for User Input....")
         //https://stackoverflow.com/questions/5055349/how-to-take-input-from-a-user-in-scala/42968214
         val input = scala.io.StdIn.readInt() 
@@ -559,6 +560,7 @@ def time_needed[T](code: => T) = {
 @arg(doc = "Question 1 Tests")
 @main
 def q1() = {
+
     println("_____Q1 Tests______");
     StrParserToken.parse(List(T_STR("sing"), T_STR("song")))
     IdParserToken.parse(List(T_ID("K190"),T_KWD("read")))
@@ -679,7 +681,6 @@ def q2() = {
 def q3() = {
 
     println("_____Q3 Tests______");
-
     val fig1 = """write "Fib";
     read n;
     minus1 := 0;
@@ -777,7 +778,6 @@ def q3() = {
 // println(eval(Stmts.parse_all(tokenise(fig2)).head))
 // println(eval(Stmts.parse_all(tokenise(fig3)).head))
 // println(eval(Stmts.parse_all(tokenise(fig4)).head))
-
 
 
 //Test with Time
