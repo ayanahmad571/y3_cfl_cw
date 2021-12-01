@@ -217,9 +217,8 @@ def mkeps(r: Rexp) : Val = r match {
   case STAR(r) => Stars(Nil)
   case RECD(x, r) => Rec(x, mkeps(r))
  
-  case PLUS(_) => Plus(Nil)
-  case OPTIONAL(r) => 
-    if (nullable(r)) Optional(mkeps(r)) else Optional(Empty) // Checking for the case where r is nullable
+  case PLUS(r) => Stars(List(mkeps(r)))
+  case OPTIONAL(r) => Stars(Nil)
   case NTIMES(r,n) => Stars(List.fill(n)(mkeps(r))) // Filling the list N times
   
 
@@ -235,8 +234,8 @@ def inj(r: Rexp, c: Char, v: Val) : Val = (r, v) match {
   // case (CHAR(d), Empty) => Chr(c) 
   case (CFUN(_), Empty) => Chr(c)
 
-  case (OPTIONAL(r), v) => Optional(inj(r, c, v))
-  case (PLUS(r), Sequ(v1, Stars(vs))) => Plus(inj(r, c, v1)::vs)
+  case (OPTIONAL(r), v) => Stars(inj(r, c, v)::Nil)
+  case (PLUS(r), Sequ(v1, Stars(vs))) => Stars(inj(r, c, v1)::vs)
   case (NTIMES(r, n), Sequ(v1, Stars(vs))) => Stars(inj(r, c, v1)::vs)
   case (RECD(x, r1), _) => Rec(x, inj(r1, c, v))
 }
