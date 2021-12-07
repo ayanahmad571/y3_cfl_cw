@@ -1,5 +1,5 @@
 
-.class public fors.fors
+.class public nestedi.nestedi
 .super java/lang/Object
 
 .method public static write(I)V 
@@ -58,16 +58,28 @@ Label2:
 
 ; COMPILED CODE STARTS   
 
-   ldc 2
+   ldc 1
    istore 0 		; i
 Loop_begin_0:
    iload 0
-   ldc 4
+   ldc 10
    if_icmpgt Loop_end_1
+   ldc 1
+   istore 0 		; i
+Loop_begin_2:
+   iload 0
+   ldc 10
+   if_icmpgt Loop_end_3
    iload 0 		; i
-   invokestatic fors/fors/write(I)V
+   invokestatic nestedi/nestedi/write(I)V
    ldc "\n" 		; "\n"
-   invokestatic fors/fors/writes(Ljava/lang/String;)V
+   invokestatic nestedi/nestedi/writes(Ljava/lang/String;)V
+   iload 0
+   ldc 1
+   iadd
+   istore 0 		; i
+   goto Loop_begin_2
+Loop_end_3:
    iload 0
    ldc 1
    iadd

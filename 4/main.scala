@@ -787,9 +787,9 @@ def compile_and_run(bl: Block, class_name: String) : Unit = {
   os.proc("java", "-jar", "jasmin.jar", s"$class_name.j").call()
   println(s"generated $class_name.class file ")
   //println(os.proc("java", s"${class_name}/${class_name}").call().out.text())
-  os.proc("java", s"${class_name}/${class_name}").call(stdout = os.Inherit)
+  // os.proc("java", s"${class_name}/${class_name}").call(stdout = os.Inherit)
   println("")
-  println(s"done.")
+  println(s"You may now manually run the file.")
 }
 
 
@@ -839,8 +839,10 @@ def q2() = {
     println("_____Q2 Tests______");
 
     val fig1 = """for i := 2 upto 4 do {
-      write i
+      write i;
+      write "\n"
     }"""
+
     val fig_parsed = Stmts.parse_all(tokenise(fig1)).head
     compile_to_file(fig_parsed, "fors")
 
@@ -853,98 +855,15 @@ def q2() = {
 def q3() = {
 
     println("_____Q3 Tests______");
-    val fig1 = """write "Fib";
-    read n;
-    minus1 := 0;
-    minus2 := 1;
-    while n > 0 do {
-        temp := minus2;
-        minus2 := minus1 + minus2;
-        minus1 := temp;
-        n := n - 1
-    };
-    write "Result";
-    write minus2"""
-
-    val fig2 = """start := 100;
-    x := start;
-    y := start;
-    z := start;
-    while 0 < x do {
-        while 0 < y do {
-        while 0 < z do { z := z - 1 };
-        z := start;
-        y := y - 1
-        };
-        y := start;
-        x := x - 1
+    val fig1 = """for i := 1 upto 10 do {
+      for i := 1 upto 10 do {
+        write i;
+        write "\n"
+      }
     }"""
 
-    val fig3 = """// prints out prime numbers from 2 to 100
-    end := 100;
-    n := 2;
-    while (n < end) do {
-    f := 2;
-    tmp := 0;
-    while ((f < n / 2 + 1) && (tmp == 0)) do {
-    if ((n / f) * f == n) then { tmp := 1 } else { skip };
-    f := f + 1
-    };
-    if (tmp == 0) then { write(n) } else { skip };
-    n := n + 1
-    }"""
-
-    val fig4 = """// Collatz series
-    //
-    // needs writing of strings and numbers; comments
-    bnd := 1;
-    while bnd < 101 do {
-    write bnd;
-    write ": ";
-    n := bnd;
-    cnt := 0;
-    while n > 1 do {
-    write n;
-    write ",";
-    if n % 2 == 0
-    then n := n / 2
-    else n := 3 * n+1;
-    cnt := cnt + 1
-    };
-    write " => ";
-    write cnt;
-    write "\n";
-    bnd := bnd + 1
-    }"""
-
-    val fig2_500 = """start := 500;
-    x := start;
-    y := start;
-    z := start;
-    while 0 < x do {
-        while 0 < y do {
-        while 0 < z do { z := z - 1 };
-        z := start;
-        y := y - 1
-        };
-        y := start;
-        x := x - 1
-    }"""
-
-    val fig2_800 = """start := 800;
-    x := start;
-    y := start;
-    z := start;
-    while 0 < x do {
-        while 0 < y do {
-        while 0 < z do { z := z - 1 };
-        z := start;
-        y := y - 1
-        };
-        y := start;
-        x := x - 1
-    }"""
-
+    val fig_parsed = Stmts.parse_all(tokenise(fig1)).head
+    compile_and_run(fig_parsed, "nestedi")
 
 
 }
