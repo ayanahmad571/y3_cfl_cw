@@ -60,10 +60,10 @@ Label2:
 
    ldc 2
    istore 0 		; i
-Loop_begin_0:
+Loop_begin_4:
    iload 0
    ldc 4
-   if_icmpgt Loop_end_1
+   if_icmpgt Loop_end_5
    iload 0 		; i
    invokestatic fors/fors/write(I)V
    ldc "\n" 		; "\n"
@@ -72,8 +72,8 @@ Loop_begin_0:
    ldc 1
    iadd
    istore 0 		; i
-   goto Loop_begin_0
-Loop_end_1:
+   goto Loop_begin_4
+Loop_end_5:
 
 ; COMPILED CODE ENDS
    return

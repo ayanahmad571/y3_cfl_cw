@@ -825,10 +825,10 @@ def q1() = {
 
     // println(Stmts.parse_all(tokenise(fig1)).head)
     val fib_parsed = Stmts.parse_all(tokenise(fib)).head
-    compile_to_file(fib_parsed, "fib")
+    compile_and_run(fib_parsed, "fib")
     // println(Stmts.parse_all(tokenise(fact)))
     val fact_parsed = Stmts.parse_all(tokenise(fact)).head
-    compile_to_file(fact_parsed, "fact")
+    compile_and_run(fact_parsed, "fact")
 }
 
 
@@ -844,7 +844,7 @@ def q2() = {
     }"""
 
     val fig_parsed = Stmts.parse_all(tokenise(fig1)).head
-    compile_to_file(fig_parsed, "fors")
+    compile_and_run(fig_parsed, "fors")
 
 
 }

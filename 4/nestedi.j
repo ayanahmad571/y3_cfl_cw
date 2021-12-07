@@ -60,16 +60,16 @@ Label2:
 
    ldc 1
    istore 0 		; i
-Loop_begin_0:
+Loop_begin_6:
    iload 0
    ldc 10
-   if_icmpgt Loop_end_1
+   if_icmpgt Loop_end_7
    ldc 1
    istore 0 		; i
-Loop_begin_2:
+Loop_begin_8:
    iload 0
    ldc 10
-   if_icmpgt Loop_end_3
+   if_icmpgt Loop_end_9
    iload 0 		; i
    invokestatic nestedi/nestedi/write(I)V
    ldc "\n" 		; "\n"
@@ -78,14 +78,14 @@ Loop_begin_2:
    ldc 1
    iadd
    istore 0 		; i
-   goto Loop_begin_2
-Loop_end_3:
+   goto Loop_begin_8
+Loop_end_9:
    iload 0
    ldc 1
    iadd
    istore 0 		; i
-   goto Loop_begin_0
-Loop_end_1:
+   goto Loop_begin_6
+Loop_end_7:
 
 ; COMPILED CODE ENDS
    return
