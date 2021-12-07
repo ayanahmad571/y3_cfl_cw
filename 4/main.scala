@@ -596,9 +596,6 @@ def Fresh(x: String) = {
   x ++ "_" ++ counter.toString()
 }
 
-// environments for variables and indices
-type Env = Map[String, Int]
-
 // convenient string interpolations 
 // for generating instructions and labels
 
