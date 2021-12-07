@@ -672,6 +672,10 @@ def compile_bexp(b: BExp, env : Env, jmp: String) : String = b match {
     compile_aexp(a1, env) ++ compile_aexp(a2, env) ++ i"if_icmpeq $jmp"
   case Bop("<", a1, a2) => 
     compile_aexp(a1, env) ++ compile_aexp(a2, env) ++ i"if_icmpge $jmp"
+  case Bop(">", a1, a2) => 
+     compile_aexp(a2, env) ++ compile_aexp(a1, env) ++ i"if_icmpge $jmp"
+  case Bop("<=", a1, a2) =>
+     compile_aexp(a1, env) ++ compile_aexp(a2, env) ++ i"if_icmpgt $jmp"
 }
 
 // statement compilation
@@ -775,40 +779,38 @@ def compile_and_run(bl: Block, class_name: String) : Unit = {
 @arg(doc = "Question 1 Tests")
 @main
 def q1() = {
-    val fig1 = """write "Fib";
+    val fib = """write "Fib: ";
     read n;
-    minus1 := 0;
-    minus2 := 1;
+    minus1 := 1;
+    minus2 := 0;
     while n > 0 do {
-        temp := minus2;
-        minus2 := minus1 + minus2;
-        minus1 := temp;
+      temp := minus2;
+      minus2 := minus1 + minus2;
+      minus1 := temp;
+      n := n - 1
+    };
+    write "Result: ";
+    write minus2 ;
+    write "\n""""
+
+    val fact = """write "Fact: ";
+    read n;
+    x := 1;
+    while n > 1 do {
+        temp := x;
+        x := temp * n;
         n := n - 1
     };
     write "Result";
-    write minus2"""
-    
-    val fib_test =List(
-      WriteStr("Fib"), 
-      Read(n), 
-      Assign(minus1,Num(0)), 
-      Assign(minus2,Num(1)), 
-      While(
-        Bop(>,Var(n),Num(0)),
-        List(
-          Assign(temp,Var(minus2)), 
-          Assign(minus2, Aop(+,Var(minus1),Var(minus2))), 
-          Assign(minus1,Var(temp)), 
-          Assign(n,Aop(-,Var(n),Num(1)))
-          )
-      ), 
-      WriteStr("Result"), 
-      WriteVar(minus2)
-    )
+    write x;
+    write "\n""""
 
-    println(Stmts.parse_all(tokenise(fig1)).head)
-    // val fib_parsed = Stmts.parse_all(tokenise(fig1)).head
-    // compile_and_run(fib_parsed, "fib")
+    // println(Stmts.parse_all(tokenise(fig1)).head)
+    val fib_parsed = Stmts.parse_all(tokenise(fib)).head
+    compile_to_file(fib_parsed, "fib")
+    // println(Stmts.parse_all(tokenise(fact)))
+    val fact_parsed = Stmts.parse_all(tokenise(fact)).head
+    compile_to_file(fact_parsed, "fact")
 }
 
 

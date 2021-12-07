@@ -1,5 +1,5 @@
 
-.class public fib.fib
+.class public fact.fact
 .super java/lang/Object
 
 .method public static write(I)V 
@@ -58,38 +58,34 @@ Label2:
 
 ; COMPILED CODE STARTS   
 
-   ldc "Fib: " 		; "Fib: "
-   invokestatic fib/fib/writes(Ljava/lang/String;)V
-   invokestatic fib/fib/read()I
+   ldc "Fact: " 		; "Fact: "
+   invokestatic fact/fact/writes(Ljava/lang/String;)V
+   invokestatic fact/fact/read()I
    istore 0 		; n
    ldc 1
-   istore 1 		; minus1
-   ldc 0
-   istore 2 		; minus2
-Loop_begin_0:
-   ldc 0
+   istore 1 		; x
+Loop_begin_2:
+   ldc 1
    iload 0
-   if_icmpge Loop_end_1
-   iload 2
-   istore 3 		; temp
+   if_icmpge Loop_end_3
    iload 1
+   istore 2 		; temp
    iload 2
-   iadd
-   istore 2 		; minus2
-   iload 3
-   istore 1 		; minus1
+   iload 0
+   imul
+   istore 1 		; x
    iload 0
    ldc 1
    isub
    istore 0 		; n
-   goto Loop_begin_0
-Loop_end_1:
-   ldc "Result: " 		; "Result: "
-   invokestatic fib/fib/writes(Ljava/lang/String;)V
-   iload 2 		; minus2
-   invokestatic fib/fib/write(I)V
+   goto Loop_begin_2
+Loop_end_3:
+   ldc "Result" 		; "Result"
+   invokestatic fact/fact/writes(Ljava/lang/String;)V
+   iload 1 		; x
+   invokestatic fact/fact/write(I)V
    ldc "\n" 		; "\n"
-   invokestatic fib/fib/writes(Ljava/lang/String;)V
+   invokestatic fact/fact/writes(Ljava/lang/String;)V
 
 ; COMPILED CODE ENDS
    return
