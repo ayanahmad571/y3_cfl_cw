@@ -575,6 +575,12 @@ val beginning = """
    .limit locals 200
    .limit stack 200
 
+.method public static read()I 
+    .limit locals 10 
+    .limit stack 10
+    ldc 0 
+    istore 1  ; this will hold our final integer 
+
 ; COMPILED CODE STARTS   
 
 """
@@ -678,7 +684,18 @@ def compile_stmt(s: Stmt, env: Env) : (String, Env) = s match {
      compile_aexp(a1, env) ++
      compile_aexp(a2, env) ++
      i"iastore", env)
-  } 
+  }
+  case WriteVar(x) => 
+    (i"iload ${env(x)} \t\t; $x" ++ 
+     i"invokestatic XXX/XXX/write(I)V", env)
+  case WriteStr(x) => 
+    (i"ldc ${x} \t\t; $x" ++ 
+     i"invokestatic XXX/XXX/writeString(Ljava/lang/String;)V", env)
+  case Read(x) => {
+    val index = env.getOrElse(x, env.keys.size) 
+    (i"invokestatic XXX/XXX/read()I" ++ 
+     i"istore $index \t\t; $x", env + (x -> index))
+  }
 }
 
 // compile a block (i.e. list of statements)
@@ -707,7 +724,7 @@ val array_test =
        AssignA("a", Num(0), Num(10)),   // a[0] := 10
        Assign("x", Ref("a", Num(0))),   // x := a[0]
        Write("x"),            
-       AssignA("b", Num(1), Num(5)),    // b[1] := 5
+       AssignA("b", Num(1), Num(7)),    // b[1] := 5
        Assign("x", Ref("b", Num(1))),   // x := b[1] 
        Write("x"))                     
 
@@ -738,28 +755,34 @@ def compile_and_run(bl: Block, class_name: String) : Unit = {
   println(s"generated $class_name.class file ")
   //println(os.proc("java", s"${class_name}/${class_name}").call().out.text())
   os.proc("java", s"${class_name}/${class_name}").call(stdout = os.Inherit)
+  println("")
   println(s"done.")
 }
-
-
-   
-@main def main() = {
-  compile_and_run(array_test, "arr")
-}
-
-
-
-
-// runs with amm2 and amm3
-
-
 
 
 
 @arg(doc = "Question 1 Tests")
 @main
 def q1() = {
+val fib_test =
+  List(Read("n"),                       //  read n;
+    Assign("minus1",Num(0)),         //  minus1 := 0;
+    Assign("minus2",Num(1)),         //  minus2 := 1;
+    Assign("temp",Num(0)),           //  temp := 0;
+    While(Bop("<",Num(0),Var("n")),  //  while n > 0 do  {
+      List(Assign("temp",Var("minus2")),    //  temp := minus2;
+        Assign("minus2",Aop("+",Var("minus1"),Var("minus2"))),
+        //  minus2 := minus1 + minus2;
+        Assign("minus1",Var("temp")), //  minus1 := temp;
+        Assign("n",Aop("-",Var("n"),Num(1))))), //  n := n - 1 };
+    Write("minus1"))                 //  write minus1
 
+
+
+// prints out the JVM-assembly program
+println(compile_and_run(fib_test, "fib"))
+// s
+  // compile_and_run(array_test, "arr")
 }
 
 

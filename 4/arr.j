@@ -20,9 +20,6 @@
    ldc 10
    newarray int
    astore 0
-   ldc 2
-   newarray int
-   astore 1
    aload 0
    ldc 0
    ldc 10
@@ -30,18 +27,8 @@
    aload 0
    ldc 0
    iaload
-   istore 2 		; x
-   iload 2 		; x
-   invokestatic arr/arr/write(I)V
-   aload 1
-   ldc 1
-   ldc 5
-   iastore
-   aload 1
-   ldc 1
-   iaload
-   istore 2 		; x
-   iload 2 		; x
+   istore 1 		; x
+   iload 1 		; x
    invokestatic arr/arr/write(I)V
 
 ; COMPILED CODE ENDS
