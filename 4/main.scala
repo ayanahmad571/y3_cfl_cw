@@ -258,7 +258,7 @@ val LETTERS_LIST = ('a' to 'z').toList ::: ('A' to 'Z').toList
 val EXTRA_CHARS_LIST : List[Char] = List('.' , '_' , '>' , '<' , '=' , ';' , '\\', ':', ','); 
 val DIGITS_NO_ZERO : Rexp = RANGE(('1' to '9').toList)
 
-val KEYWORD : Rexp = "while" | "if" | "then" | "else" | "do" | "for" | "to" | "true" | "false" | "read" | "write" | "skip" 
+val KEYWORD : Rexp = "while" | "if" | "then" | "else" | "do" | "for" | "to" | "true" | "false" | "read" | "write" | "skip" | "upto"
 val OP: Rexp = "+" | "-" | "*" | "%" | "/" | "==" | "!=" | ">" | "<" | "<=" | ">=" | ":=" | "&&" | "||"
 val LETTERS : Rexp = RANGE(LETTERS_LIST)
 val SYMBOLS : Rexp = RANGE(LETTERS_LIST ::: EXTRA_CHARS_LIST ) 
@@ -401,6 +401,7 @@ type Block = List[Stmt]
 case object Skip extends Stmt
 case class If(a: BExp, bl1: Block, bl2: Block) extends Stmt
 case class While(b: BExp, bl: Block) extends Stmt
+case class For(s: Stmt, a : AExp, bl: Block) extends Stmt
 case class Assign(s: String, a: AExp) extends Stmt
 case class Write(s: String) extends Stmt
 case class Read(s: String) extends Stmt
@@ -462,7 +463,8 @@ lazy val Stmt: Parser[List[Token], Stmt] =
    (T_KWD("read") ~ T_LPAREN_N ~ IdParserToken ~ T_RPAREN_N).map[Stmt]{ case _ ~ _ ~ y ~ _ => Read(y) } ||
    (T_KWD("if") ~ BExp ~ T_KWD("then") ~ Block ~ T_KWD("else") ~ Block)
    .map[Stmt]{ case _ ~ y ~ _ ~ u ~ _ ~ w => If(y, u, w) } ||
-   (T_KWD("while") ~ BExp ~ T_KWD("do") ~ Block).map[Stmt]{ case _ ~ y ~ _ ~ w => While(y, w) })
+   (T_KWD("while") ~ BExp ~ T_KWD("do") ~ Block).map[Stmt]{ case _ ~ y ~ _ ~ w => While(y, w) } ||
+   (T_KWD("for") ~ Stmt ~ T_KWD("upto") ~ AExp ~ T_KWD("do") ~ Block).map[Stmt]{ case _ ~ s ~ _ ~ a ~ _ ~ bl => For(s, a, bl): Stmt })
  
 
 // statements
@@ -682,7 +684,7 @@ def compile_bexp(b: BExp, env : Env, jmp: String) : String = b match {
 def compile_stmt(s: Stmt, env: Env) : (String, Env) = s match {
   case Skip => ("", env)
   case Assign(x, a) => {
-     val index = env.getOrElse(x, env.keys.size)
+    val index = env.getOrElse(x, env.keys.size)
     (compile_aexp(a, env) ++ i"istore $index \t\t; $x", env + (x -> index)) 
   } 
   case If(b, bl1, bl2) => {
@@ -706,6 +708,22 @@ def compile_stmt(s: Stmt, env: Env) : (String, Env) = s match {
      instrs1 ++
      i"goto $loop_begin" ++
      l"$loop_end", env1)
+  }
+  case For(st, ar, bl) => {
+    // Here I and a equal to the values passed into st
+    // ST here will be of the form Assign(x,y)
+    // Hence i = x, and a = y
+    val Assign(i, a) = st
+    compile_block(
+      List(
+        st, 
+        While(
+          Bop("<=", Var(i), ar), 
+          bl ++ List(Assign(i, Aop("+", Var(i), Num(1))))
+        )
+      ),
+      env
+    )
   }
   case Write(x) => 
     (i"iload ${env(x)} \t\t; $x" ++ 
@@ -820,69 +838,11 @@ def q2() = {
     
     println("_____Q2 Tests______");
 
-    val fig1 = """write "Fib";
-    read n;
-    minus1 := 0;
-    minus2 := 1;
-    while n > 0 do {
-        temp := minus2;
-        minus2 := minus1 + minus2;
-        minus1 := temp;
-        n := n - 1
-    };
-    write "Result";
-    write minus2"""
-
-    val fig2 = """start := 1000;
-    x := start;
-    y := start;
-    z := start;
-    while 0 < x do {
-        while 0 < y do {
-        while 0 < z do { z := z - 1 };
-        z := start;
-        y := y - 1
-        };
-        y := start;
-        x := x - 1
+    val fig1 = """for i := 2 upto 4 do {
+      write i
     }"""
-
-    val fig3 = """// prints out prime numbers from 2 to 100
-    end := 100;
-    n := 2;
-    while (n < end) do {
-    f := 2;
-    tmp := 0;
-    while ((f < n / 2 + 1) && (tmp == 0)) do {
-    if ((n / f) * f == n) then { tmp := 1 } else { skip };
-    f := f + 1
-    };
-    if (tmp == 0) then { write(n) } else { skip };
-    n := n + 1
-    }"""
-
-    val fig4 = """// Collatz series
-    //
-    // needs writing of strings and numbers; comments
-    bnd := 1;
-    while bnd < 101 do {
-    write bnd;
-    write ": ";
-    n := bnd;
-    cnt := 0;
-    while n > 1 do {
-    write n;
-    write ",";
-    if n % 2 == 0
-    then n := n / 2
-    else n := 3 * n+1;
-    cnt := cnt + 1
-    };
-    write " => ";
-    write cnt;
-    write "\n";
-    bnd := bnd + 1
-    }"""
+    val fig_parsed = Stmts.parse_all(tokenise(fig1)).head
+    compile_to_file(fig_parsed, "fors")
 
 
 }
