@@ -746,7 +746,6 @@ def compile_stmt(s: Stmt, env: Env) : (String, Env) = s match {
   case WriteVar(x) => 
     (i"iload ${env(x)} \t\t; $x" ++ 
      i"invokestatic XXX/XXX/write(I)V", env)
-
   case WriteStr(x) => 
     (i"ldc ${x} \t\t; $x" ++ 
      i"invokestatic XXX/XXX/writes(Ljava/lang/String;)V", env)
