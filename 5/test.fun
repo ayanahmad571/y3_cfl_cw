@@ -1,3 +1,3 @@
-if 1 == 1 
-then write "y"
-else write "n" 
+def fact(n : Int, x: Float, y: String) : String = write "x";
+
+fact(2,5,6)

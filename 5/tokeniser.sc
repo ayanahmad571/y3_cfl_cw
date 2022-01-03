@@ -51,7 +51,8 @@ case class T_NUM(n: Int) extends Token
 case class T_KWD(s: String) extends Token
 case class T_STR(s: String) extends Token
 
-case class T_FNUM(n: Double) extends Token
+case class T_FNUM(n: Float) extends Token
+case class T_TYPE(s: String) extends Token
 case object T_COMMA extends Token
 
 /* End Class Definitions */
@@ -278,6 +279,8 @@ val PREFIXES = RANGE(SIGNS)
 
 
 //Can recognise 0 but not numbers with leading 0s
+val TYPES : Rexp = "Int" | "Double" | "Void" | "String" | "Float"
+ 
 val NUMBER = ((DIGIT) | (DIGITS_NO_ZERO ~ PLUS(DIGIT)))
 val DOUBLE = OPTIONAL(PREFIXES) ~ STAR(DIGIT) ~ OPTIONAL(".") ~ PLUS(DIGIT)
 val ID = LETTERS ~ (UNDERSCORE | LETTERS | DIGIT).% // star or PLUS
@@ -287,6 +290,7 @@ val COMMENT : Rexp = "//" ~ (SYMBOLS | CHAR(' ') | DIGIT | RPAREN | LPAREN | COM
 
 
 val WHILE_REGS = (("k" $ KEYWORD) | 
+                  ("t" $ TYPES) | 
                   ("i" $ ID) | 
                   ("o" $ OP) |
                   ("n" $ NUMBER) | 
@@ -307,9 +311,10 @@ val token : PartialFunction[(String, String), Token] = {
   case ("p", "(") => T_LPAREN_N
   case ("p", ")") => T_RPAREN_N
   case ("i", s) => T_ID(s)
+  case ("t", s) => T_TYPE(s)
   case ("o", s) => T_OP(s)
   case ("n", s) => T_NUM(s.toInt)
-  case ("d", s) => T_FNUM(s.toDouble)
+  case ("d", s) => T_FNUM(s.toFloat)
   case ("k", s) => T_KWD(s)
   case ("str", s) => T_STR(s)
 }

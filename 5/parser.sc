@@ -45,11 +45,27 @@ implicit def ParserOps[I, T](p: Parser[I, T])(implicit ev: I => Seq[_]) = new {
   def ~[S] (q : => Parser[I, S]) = new SeqParser[I, T, S](p, q)
 }
 
-def ListParser[I, T, S](p: => Parser[I, T], 
-                        q: => Parser[I, S])(implicit ev: I => Seq[_]): Parser[I, List[T]] = {
+def ListParser[I, T, S](p: => Parser[I, T], q: => Parser[I, S])(implicit ev: I => Seq[_]): Parser[I, List[T]] = {
   (p ~ q ~ ListParser(p, q)) ==> { case x ~ _ ~ z => x :: z : List[T] } ||
   (p ==> ((s) => List(s)))
 }
+
+def ArgParser[I, T, S](p: => Parser[I, T], q: => Parser[I, S])(implicit ev: I => Seq[_]): Parser[I, List[(T, String)]] = {
+  // println(p, q)
+  (p ~ q ~ ArgParser(p, q)) ==> { case x ~ _ ~ z => (x, "Int") :: z : List[(T, String)] } ||
+  (p ==> (s => List((s, "Int"))))
+}
+
+// ArgTypeParser(IdParser, T_COMMA)
+
+def ArgTypeParser[I, T, S, K, N](p: => Parser[I, T], q: => Parser[I, S], r: => Parser[I, K], t: => Parser[I, N])(implicit ev: I => Seq[_]): Parser[I, List[(T, K)]] = {
+  // println(p, q ,r, t)
+  (p ~ q ~ r ~ t ~ ArgTypeParser(p, q, r, t)) ==> { case x ~ _ ~ z ~ _ ~ y => (x,z) :: y : List[(T, K)] } ||
+  (p ~ q ~ r ) ==> {case x ~ _ ~ z => List((x, z))}
+}
+
+// ArgTypeParser( p-> IdParser, q-> T_OP(":"), r-> TypeParser, t-> T_COMMA)
+
 
 case class TokParser(tok: Token) extends Parser[List[Token], Token] {
   def parse(ts: List[Token]) = ts match {
@@ -73,6 +89,12 @@ case object NumParser extends Parser[List[Token], Int] {
   }
 }
 
+case object FloatParser extends Parser[List[Token], Float] {
+  def parse(ts: List[Token]) = ts match {
+    case T_FNUM(n)::ts => Set((n, ts)) 
+    case _ => Set ()
+  }
+}
 case object IdParser extends Parser[List[Token], String] {
   def parse(ts: List[Token]) = ts match {
     case T_ID(s)::ts => Set((s, ts)) 
@@ -88,6 +110,13 @@ case object StrParserToken extends Parser[List[Token], String] {
   }
 }
 
+// atomic parser for (tokenised) strings
+case object TypeParser extends Parser[List[Token], String] {
+  def parse(tkns: List[Token]) = tkns match {
+    case T_TYPE(tk)::rest => Set((tk, rest))
+    case _ => Set()
+  }
+}
 
 
 // Abstract syntax trees for the Fun language
@@ -95,15 +124,20 @@ abstract class Exp extends Serializable
 abstract class BExp extends Serializable 
 abstract class Decl extends Serializable 
 
-case class Def(name: String, args: List[String], body: Exp) extends Decl
+case class Def(name: String , args: List[(String , String)], ty: String , body: Exp) extends Decl
 case class Main(e: Exp) extends Decl
+case class Const(name: String , v: Int) extends Decl
+case class FConst(name: String , x: Float) extends Decl
+
 
 case class Call(name: String, args: List[Exp]) extends Exp
 case class If(a: BExp, e1: Exp, e2: Exp) extends Exp
 case class Write(e: Exp) extends Exp
 case class WriteStr(e: String) extends Exp
 case class Var(s: String) extends Exp
-case class Num(i: Int) extends Exp
+case class Num(i: Int) extends Exp // integer numbers
+case class FNum(i: Float) extends Exp // floating numbers
+case class ChConst(c: Int) extends Exp // char constants
 case class Aop(o: String, a1: Exp, a2: Exp) extends Exp
 case class Sequence(e1: Exp, e2: Exp) extends Exp
 case class Bop(o: String, a1: Exp, a2: Exp) extends BExp
@@ -133,7 +167,9 @@ lazy val F: Parser[List[Token], Exp] =
     { case x ~ _ ~ z ~ _ => Call(x, z): Exp } ||
   (T_LPAREN_N ~ Exp ~ T_RPAREN_N) ==> { case _ ~ y ~ _ => y: Exp } || 
   IdParser ==> { case x => Var(x): Exp } || 
-  NumParser ==> { case x => Num(x): Exp }
+  NumParser ==> { case x => Num(x): Exp } ||
+  FloatParser ==> { case x => FNum(x): Exp }
+
 
 // boolean expressions
 lazy val BExp: Parser[List[Token], BExp] = 
@@ -145,8 +181,15 @@ lazy val BExp: Parser[List[Token], BExp] =
   (Exp ~ T_OP("=>") ~ Exp) ==> { case x ~ _ ~ z => Bop("<=", z, x): BExp }  
 
 lazy val Defn: Parser[List[Token], Decl] =
-   (T_KWD("def") ~ IdParser ~ T_LPAREN_N ~ ListParser(IdParser, T_COMMA) ~ T_RPAREN_N ~ T_OP("=") ~ Exp) ==>
-     { case _ ~ y ~ _ ~ w ~ _ ~ _ ~ r => Def(y, w, r): Decl }
+   (T_KWD("def") ~ IdParser ~ T_LPAREN_N ~ ArgParser(IdParser, T_COMMA) ~ T_RPAREN_N ~ T_OP("=") ~ Exp) ==>
+     { case _ ~ y ~ _ ~ w ~ _ ~ _ ~ r => {
+       println(Def(y, w, "Void",  r): Decl)
+       Def(y, w, "Void",  r): Decl
+       } } ||
+  (T_KWD("def") ~ IdParser ~ T_LPAREN_N ~ ArgTypeParser(IdParser, T_OP(":"), TypeParser, T_COMMA) ~ T_RPAREN_N ~ T_OP(":") ~ TypeParser ~ T_OP("=") ~ Exp) ==>
+     { case _ ~ y ~ _ ~ w ~ _ ~ _ ~ t ~ _ ~ r => {
+      //  println(Def(y, w, t,  r): Decl)
+       Def(y, w, t,  r): Decl} }
 
 lazy val Prog: Parser[List[Token], List[Decl]] =
   (Defn ~ T_SEMI ~ Prog) ==> { case x ~ _ ~ z => x :: z : List[Decl] } ||

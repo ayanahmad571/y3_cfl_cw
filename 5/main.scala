@@ -216,7 +216,7 @@ define i32 @printInt(i32 %x) {
 
 // compile function for declarations and main
 def compile_decl(d: Decl) : String = d match {
-  case Def(name, args, body) => { 
+  case Def(name, args, ty, body) => { 
     m"define i32 @$name (${args.mkString("i32 %", ", i32 %", "")}) {" ++
     compile_exp(CPSi(body)) ++
     m"}\n"
