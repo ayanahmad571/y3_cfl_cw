@@ -244,12 +244,14 @@ def main(fname: String) = {
     val tks = tokenise(os.read(path))
     println("Tokenise___________________")
     println(tks)
-
+    println("Tokenise_____________________________________")
+    
     val ast = parse_tks(tks)
     println("Parse___________________")
     println(ast)
+    println("Parse_________________________________________")
 
-    println(compile(ast))
+    // println(compile(ast))
 }
 
 @main

@@ -46,6 +46,7 @@ case object T_RPAREN_C extends Token
 case object T_LPAREN_N extends Token
 case object T_RPAREN_N extends Token
 case class T_ID(s: String) extends Token
+case class T_ID_CONST(s: String) extends Token
 case class T_OP(s: String) extends Token
 case class T_NUM(n: Int) extends Token
 case class T_KWD(s: String) extends Token
@@ -259,12 +260,15 @@ def lexing_simp(r: Rexp, s: String) = env(lex_simp(r, s.toList))
 
 // Question 1
 val LETTERS_LIST = ('a' to 'z').toList ::: ('A' to 'Z').toList
+val CAPITAL_LETTERS_LIST = ('A' to 'Z').toList
+
 val EXTRA_CHARS_LIST : List[Char] = List('.' , '_' , '>' , '<' , '=' , ';' , '\\', ':', ',', '-'); 
 val DIGITS_NO_ZERO : Rexp = RANGE(('1' to '9').toList)
 
-val KEYWORD : Rexp = "def" | "while" | "if" | "then" | "else" | "do" | "for" | "to" | "true" | "false" | "read" | "write" | "skip" | "upto"
+val KEYWORD : Rexp = "def" | "val" | "while" | "if" | "then" | "else" | "do" | "for" | "to" | "true" | "false" | "read" | "write" | "skip" | "upto" | "print_char" | "print_int" | "new_line" | "print_space" | "print_star"
 val OP: Rexp = "+" | "-" | "*" | "%" | "/" | "==" | "!=" | ">" | "<" | "<=" | ">=" | ":=" | "&&" | "||" | "=" | ":"
 val LETTERS : Rexp = RANGE(LETTERS_LIST)
+val CAPITAL_LETTERS : Rexp = RANGE(CAPITAL_LETTERS_LIST)
 val SYMBOLS : Rexp = RANGE(LETTERS_LIST ::: EXTRA_CHARS_LIST ) 
 val RPAREN: Rexp = "{" | "("
 val LPAREN: Rexp = "}" | ")"
@@ -284,6 +288,7 @@ val TYPES : Rexp = "Int" | "Double" | "Void" | "String" | "Float"
 val NUMBER = ((DIGIT) | (DIGITS_NO_ZERO ~ PLUS(DIGIT)))
 val DOUBLE = OPTIONAL(PREFIXES) ~ STAR(DIGIT) ~ OPTIONAL(".") ~ PLUS(DIGIT)
 val ID = LETTERS ~ (UNDERSCORE | LETTERS | DIGIT).% // star or PLUS
+val ID_CONST = CAPITAL_LETTERS ~ (UNDERSCORE | LETTERS | DIGIT).% // star or PLUS
 val STRING: Rexp = "\"" ~ (SYMBOLS | DIGIT | WHITESPACE).% ~ "\""
 val STRING_S: Rexp = "\'" ~ (SYMBOLS | DIGIT | WHITESPACE).% ~ "\'"
 val COMMENT : Rexp = "//" ~ (SYMBOLS | CHAR(' ') | DIGIT | RPAREN | LPAREN | COMMA | "//" | "\'" | "\"").% ~ NEWLINE
@@ -291,6 +296,7 @@ val COMMENT : Rexp = "//" ~ (SYMBOLS | CHAR(' ') | DIGIT | RPAREN | LPAREN | COM
 
 val WHILE_REGS = (("k" $ KEYWORD) | 
                   ("t" $ TYPES) | 
+                  ("ic" $ ID_CONST) | 
                   ("i" $ ID) | 
                   ("o" $ OP) |
                   ("n" $ NUMBER) | 
@@ -311,6 +317,7 @@ val token : PartialFunction[(String, String), Token] = {
   case ("p", "(") => T_LPAREN_N
   case ("p", ")") => T_RPAREN_N
   case ("i", s) => T_ID(s)
+  case ("ic", s) => T_ID_CONST(s)
   case ("t", s) => T_TYPE(s)
   case ("o", s) => T_OP(s)
   case ("n", s) => T_NUM(s.toInt)
