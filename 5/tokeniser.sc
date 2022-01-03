@@ -6,6 +6,14 @@ case class ALT(r1: Rexp, r2: Rexp) extends Rexp              // alternative
 case class SEQ(r1: Rexp, r2: Rexp) extends Rexp              // sequence
 case class STAR(r: Rexp) extends Rexp                        // star
 
+
+
+
+
+
+
+
+
 // records for extracting strings or tokens
 case class RECD(x: String, r: Rexp) extends Rexp  
 
@@ -140,6 +148,9 @@ def F_ERROR(v: Val): Val = throw new Exception("error")
 
 
 
+
+
+
 // simplification
 def simp(r: Rexp): (Rexp, Val => Val) = r match {
   case ALT(r1, r2) => {
@@ -181,6 +192,7 @@ def flatten(v: Val) : String = v match {
 }
 
 // extracts an environment from a value;
+
 // used for tokenising a string
 def env(v: Val) : List[(String, String)] = v match {
   case Empty => Nil
@@ -310,5 +322,9 @@ import ammonite.ops._
 def main(fname: String) = {
   println(tokenise(os.read(os.pwd / fname)))
 }
+
+
+
+
 
 

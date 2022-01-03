@@ -3,60 +3,82 @@ import scala.language.reflectiveCalls
 
 import $file.tokeniser, tokeniser._ 
 
-case class ~[+A, +B](x: A, y: B)
 
-// constraint for the input
-type IsSeq[A] = A => Seq[_]
+// Parser combinators
+//    type parameter I needs to be of Seq-type
+//
+abstract class Parser[I, T](implicit ev: I => Seq[_]) {
+  def parse(ts: I): Set[(T, I)]
 
-
-abstract class Parser[I : IsSeq, T]{
-    def parse(in: I): Set[(T, I)]
-    def parse_all(in: I) : Set[T] = for ((hd, tl) <- parse(in); if tl.isEmpty) yield hd
+  def parse_single(ts: I) : T = 
+    parse(ts).partition(_._2.isEmpty) match {
+      case (good, _) if !good.isEmpty => good.head._1
+      case (_, err) => { println ("Parse Error") ; sys.exit(-1) }
+    }
 }
 
-// parser combinators
+// convenience for writing grammar rules
+case class ~[+A, +B](_1: A, _2: B)
 
-// sequence parser
-class SeqParser[I : IsSeq, T, S](p: => Parser[I, T], q: => Parser[I, S]) extends Parser[I, ~[T, S]] {
-    def parse(in: I) = 
-        for ((hd1, tl1) <- p.parse(in); (hd2, tl2) <- q.parse(tl1)) yield (new ~(hd1, hd2), tl2)
+class SeqParser[I, T, S](p: => Parser[I, T], 
+                         q: => Parser[I, S])(implicit ev: I => Seq[_]) extends Parser[I, ~[T, S]] {
+  def parse(sb: I) = 
+    for ((head1, tail1) <- p.parse(sb); 
+         (head2, tail2) <- q.parse(tail1)) yield (new ~(head1, head2), tail2)
 }
 
-// alternative parser
-class AltParser[I : IsSeq, T](p: => Parser[I, T], q: => Parser[I, T]) extends Parser[I, T] {
-    def parse(in: I) = p.parse(in) ++ q.parse(in)   
+class AltParser[I, T](p: => Parser[I, T], 
+                      q: => Parser[I, T])(implicit ev: I => Seq[_]) extends Parser[I, T] {
+  def parse(sb: I) = p.parse(sb) ++ q.parse(sb)   
 }
 
-// map parser
-class MapParser[I : IsSeq, T, S](p: => Parser[I, T], f: T => S) extends Parser[I, S] {
-    def parse(in: I) = for ((hd, tl) <- p.parse(in)) yield (f(hd), tl)
+class FunParser[I, T, S](p: => Parser[I, T], 
+                         f: T => S)(implicit ev: I => Seq[_]) extends Parser[I, S] {
+  def parse(sb: I) = 
+    for ((head, tail) <- p.parse(sb)) yield (f(head), tail)
 }
 
+// convenient combinators
+implicit def ParserOps[I, T](p: Parser[I, T])(implicit ev: I => Seq[_]) = new {
+  def || (q : => Parser[I, T]) = new AltParser[I, T](p, q)
+  def ==>[S] (f: => T => S) = new FunParser[I, T, S](p, f)
+  def ~[S] (q : => Parser[I, S]) = new SeqParser[I, T, S](p, q)
+}
 
+def ListParser[I, T, S](p: => Parser[I, T], 
+                        q: => Parser[I, S])(implicit ev: I => Seq[_]): Parser[I, List[T]] = {
+  (p ~ q ~ ListParser(p, q)) ==> { case x ~ _ ~ z => x :: z : List[T] } ||
+  (p ==> ((s) => List(s)))
+}
 
-// Token Parser, checks for a token in the list
-case class TokenParser(tkn : Token) extends Parser[List[Token], Token] {
-  def parse(tkns : List[Token]) = tkns match {
-    case head::rest => if (head == tkn) Set((head, rest)) else Set()
-    case _ => Set()
+case class TokParser(tok: Token) extends Parser[List[Token], Token] {
+  def parse(ts: List[Token]) = ts match {
+    case t::ts if (t == tok) => Set((t, ts)) 
+    case _ => Set ()
   }
 }
 
-implicit def tknParser(t : Token) = TokenParser(t)
+implicit def token2tparser(t: Token) = TokParser(t)
 
-implicit def ParserOps[I : IsSeq, T](p: Parser[I, T]) = new {
-  def ||(q : => Parser[I, T]) = new AltParser[I, T](p, q)
-  def ~[S] (q : => Parser[I, S]) = new SeqParser[I, T, S](p, q)
-  def map[S](f: => T => S) = new MapParser[I, T, S](p, f)
+implicit def TokOps(t: Token) = new {
+  def || (q : => Parser[List[Token], Token]) = new AltParser[List[Token], Token](t, q)
+  def ==>[S] (f: => Token => S) = new FunParser[List[Token], Token, S](t, f)
+  def ~[S](q : => Parser[List[Token], S]) = new SeqParser[List[Token], Token, S](t, q)
 }
 
-implicit def TokenOps(p: Token) = new {
-    def || (q : => Parser[List[Token], Token]) = new AltParser[List[Token], Token](p, q)
-    def ~[S](q : => Parser[List[Token], S]) = new SeqParser[List[Token], Token, S](p, q)
-    def map[S] (f: => Token => S) = new MapParser[List[Token], Token, S](p, f)
+case object NumParser extends Parser[List[Token], Int] {
+  def parse(ts: List[Token]) = ts match {
+    case T_NUM(n)::ts => Set((n, ts)) 
+    case _ => Set ()
+  }
 }
 
-
+case object IdParser extends Parser[List[Token], String] {
+  def parse(ts: List[Token]) = ts match {
+    case T_ID(s)::ts => Set((s, ts)) 
+    case _ => Set ()
+  }
+}
 
 // atomic parser for (tokenised) strings
 case object StrParserToken extends Parser[List[Token], String] {
@@ -67,51 +89,25 @@ case object StrParserToken extends Parser[List[Token], String] {
 }
 
 
-// atomic parser for (tokenised) IDs
-case object IdParserToken extends Parser[List[Token], String] {
-  def parse(tkns: List[Token]) = tkns match {
-    case T_ID(tk)::rest => Set((tk, rest))
-    case _ => Set()
-  }
-}
 
+// Abstract syntax trees for the Fun language
+abstract class Exp extends Serializable 
+abstract class BExp extends Serializable 
+abstract class Decl extends Serializable 
 
-
-// atomic parser for numbers (transformed into ints)
-case object NumParserToken extends Parser[List[Token], Int] {
-  def parse(tkns: List[Token]) = tkns match {
-    case T_NUM(tk)::rest => Set((tk, rest))
-    case _ => Set()
-  }
-}
-
-// atomic parser for numbers (transformed into ints)
-case object DoubleParserToken extends Parser[List[Token], Double] {
-  def parse(tkns: List[Token]) = tkns match {
-    case T_FNUM(tk)::rest => Set((tk, rest))
-    case _ => Set()
-  }
-}
-
-
-
-abstract class Exp
-abstract class BExp
-abstract class Decl
-
-case class Def(name: String , args: List[(String , String)], ty: String , body: Exp) extends Decl
+case class Def(name: String, args: List[String], body: Exp) extends Decl
 case class Main(e: Exp) extends Decl
-case class Const(name: String , v: Int) extends Decl
-case class FConst(name: String , x: Float) extends Decl
-case class Call(name: String , args: List[Exp]) extends Exp
-case class If(a: BExp , e1: Exp , e2: Exp) extends Exp
+
+case class Call(name: String, args: List[Exp]) extends Exp
+case class If(a: BExp, e1: Exp, e2: Exp) extends Exp
+case class Write(e: Exp) extends Exp
+case class WriteStr(e: String) extends Exp
 case class Var(s: String) extends Exp
-case class Num(i: Int) extends Exp // integer numbers
-case class FNum(i: Float) extends Exp // floating numbers
-case class ChConst(c: Int) extends Exp // char constants
-case class Aop(o: String , a1: Exp , a2: Exp) extends Exp
-case class Sequence(e1: Exp , e2: Exp) extends Exp
-case class Bop(o: String , a1: Exp , a2: Exp) extends BExp
+case class Num(i: Int) extends Exp
+case class Aop(o: String, a1: Exp, a2: Exp) extends Exp
+case class Sequence(e1: Exp, e2: Exp) extends Exp
+case class Bop(o: String, a1: Exp, a2: Exp) extends BExp
+
 
 
 // Grammar Rules for the Fun language
@@ -121,41 +117,17 @@ lazy val Exp: Parser[List[Token], Exp] =
   (T_KWD("if") ~ BExp ~ T_KWD("then") ~ Exp ~ T_KWD("else") ~ Exp) ==>
     { case _ ~ x ~ _ ~ y ~ _ ~ z => If(x, y, z): Exp } ||
   (M ~ T_SEMI ~ Exp) ==> { case x ~ _ ~ y => Sequence(x, y): Exp } || M
-
 lazy val M: Parser[List[Token], Exp] =
-  (T_KWD("write") ~ L) ==> { case _ ~ y => Write(y): Exp } || 
-  (T_KWD("skip") ==> {_ => Skip }) ||
-  (IdParserToken ~ T_OP(":=") ~ Exp) ==> { case x ~ _ ~ z => Assign(x, z) } ||
-  (T_KWD("if") ~ BExp ~ T_KWD("then") ~ Block ~ T_KWD("else") ~ Block) ==> { case _ ~ y ~ _ ~ u ~ _ ~ w => If(y, u, w) } ||
-  (T_KWD("while") ~ BExp ~ T_KWD("do") ~ Block) ==> { case _ ~ y ~ _ ~ w => While(y, w) } ||
-  (T_KWD("for") ~ Stmt ~ T_KWD("upto") ~ Exp ~ T_KWD("do") ~ Block) ==> { case _ ~ s ~ _ ~ a ~ _ ~ bl => For(s, a, bl): Stmt } ||
-
-
-  (T_KWD("write") ~ T_LPAREN_N ~ IdParserToken ~ T_RPAREN_N_N) ==> { case _ ~ _ ~ y ~ _ => { WriteVar(y)} } ||
-  (T_KWD("write") ~ StrParserToken) ==> { case _ ~ y => WriteStr(y) } ||
-  (T_KWD("write") ~ IdParserToken) ==> { case _~ y => WriteVar(y)} ||
-  (T_KWD("write") ~ T_LPAREN_N ~ StrParserToken ~ T_RPAREN_N) ==> { case _ ~ _ ~ y ~ _ => WriteStr(y) } ||
-
-  (T_KWD("read") ~ IdParserToken) ==> { case _ ~ y => Read(y) } ||
-  (T_KWD("read") ~ T_LPAREN_N ~ IdParserToken ~ T_RPAREN_N) ==> { case _ ~ _ ~ y ~ _ => Read(y) } ||
-
-  (T_KWD("print_int") ~ T_LPAREN_N ~ NumParserToken ~ T_RPAREN_N) ==> { case _ ~ _ ~ y ~ _ => WriteStr(y) } ||
-  (T_KWD("print_char") ~ T_LPAREN_N ~ StrParserToken ~ T_RPAREN_N) ==> { case _ ~ _ ~ y ~ _ => WriteStr(y) } ||
-  (T_KWD("print_int") ~ T_LPAREN_N ~ F ~ T_RPAREN_N) ==> { case _ ~ _ ~ y ~ _ => WriteStr(y) } ||
-  (T_KWD("print_char") ~ T_LPAREN_N ~ F ~ T_RPAREN_N) ==> { case _ ~ _ ~ y ~ _ => WriteStr(y) } ||
-
-
-  || L
+  (T_KWD("write") ~ L) ==> { case _ ~ y => Write(y): Exp } ||
+  (T_KWD("write") ~ StrParserToken) ==> { case _ ~ y => WriteStr(y): Exp } || L
 
 lazy val L: Parser[List[Token], Exp] = 
   (T ~ T_OP("+") ~ Exp) ==> { case x ~ _ ~ z => Aop("+", x, z): Exp } ||
   (T ~ T_OP("-") ~ Exp) ==> { case x ~ _ ~ z => Aop("-", x, z): Exp } || T  
-
 lazy val T: Parser[List[Token], Exp] = 
   (F ~ T_OP("*") ~ T) ==> { case x ~ _ ~ z => Aop("*", x, z): Exp } || 
   (F ~ T_OP("/") ~ T) ==> { case x ~ _ ~ z => Aop("/", x, z): Exp } || 
   (F ~ T_OP("%") ~ T) ==> { case x ~ _ ~ z => Aop("%", x, z): Exp } || F
-
 lazy val F: Parser[List[Token], Exp] = 
   (IdParser ~ T_LPAREN_N ~ ListParser(Exp, T_COMMA) ~ T_RPAREN_N) ==> 
     { case x ~ _ ~ z ~ _ => Call(x, z): Exp } ||
@@ -163,18 +135,14 @@ lazy val F: Parser[List[Token], Exp] =
   IdParser ==> { case x => Var(x): Exp } || 
   NumParser ==> { case x => Num(x): Exp }
 
+// boolean expressions
 lazy val BExp: Parser[List[Token], BExp] = 
-   (Exp ~ T_OP("==") ~ Exp) ==> { case x ~ _ ~ z => Bop("==", x, z) } || 
-   (Exp ~ T_OP("!=") ~ Exp) ==> { case x ~ _ ~ z => Bop("!=", x, z) } || 
-   (Exp ~ T_OP("<") ~ Exp) ==> { case x ~ _ ~ z => Bop("<", x, z) } || 
-   (Exp ~ T_OP(">") ~ Exp) ==> { case x ~ _ ~ z => Bop("<", z, x) } ||
-   (Exp ~ T_OP(">=") ~ Exp) ==> { case x ~ _ ~ z => Bop("<=", z, x)} ||
-   (Exp ~ T_OP("<=") ~ Exp) ==> { case x ~ _ ~ z => Bop("<=", x, z)} ||
-   (T_LPAREN_N ~ BExp ~ T_RPAREN_N ~ T_OP("&&") ~ BExp) ==> { case _ ~ y ~ _ ~ _ ~ v => And(y, v) } ||
-   (T_LPAREN_N ~ BExp ~ T_RPAREN_N ~ T_OP("||") ~ BExp) ==> { case _ ~ y ~ _ ~ _ ~ v => Or(y, v) } ||
-   (T_KWD("true") ==> { _ => True }) || 
-   (T_KWD("false") ==> { _ => False }) ||
-   (T_LPAREN_N ~ BExp ~ T_RPAREN_N) ==> { case _ ~ x ~ _ => x }
+  (Exp ~ T_OP("==") ~ Exp) ==> { case x ~ _ ~ z => Bop("==", x, z): BExp } || 
+  (Exp ~ T_OP("!=") ~ Exp) ==> { case x ~ _ ~ z => Bop("!=", x, z): BExp } || 
+  (Exp ~ T_OP("<") ~ Exp)  ==> { case x ~ _ ~ z => Bop("<",  x, z): BExp } || 
+  (Exp ~ T_OP(">") ~ Exp)  ==> { case x ~ _ ~ z => Bop("<",  z, x): BExp } || 
+  (Exp ~ T_OP("<=") ~ Exp) ==> { case x ~ _ ~ z => Bop("<=", x, z): BExp } || 
+  (Exp ~ T_OP("=>") ~ Exp) ==> { case x ~ _ ~ z => Bop("<=", z, x): BExp }  
 
 lazy val Defn: Parser[List[Token], Decl] =
    (T_KWD("def") ~ IdParser ~ T_LPAREN_N ~ ListParser(IdParser, T_COMMA) ~ T_RPAREN_N ~ T_OP("=") ~ Exp) ==>
@@ -197,9 +165,7 @@ def parse_tks(tks: List[Token]) : List[Decl] =
 @main
 def main(fname: String) : Unit = {
   val tks = tokenise(os.read(os.pwd / fname))
-  println(tks)
-  // println(parse_tks(tks))
+  println(parse_tks(tks))
 }
-
 
 

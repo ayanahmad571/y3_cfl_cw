@@ -8,13 +8,11 @@
 
 
 
-import $file.tokeniser, tokeniser
+import $file.tokeniser, tokeniser._
 import $file.parser, parser._ 
 
 import scala.language.implicitConversions    
 import scala.language.reflectiveCalls 
-
-// Coursework 3 Code is not needed
 
 
 // for generating new labels
@@ -24,18 +22,6 @@ def Fresh(x: String) = {
   counter += 1
   x ++ "_" ++ counter.toString()
 }
-
-// convenient string interpolations 
-// for generating instructions and labels
-
-implicit def sring_inters(sc: StringContext) = new {
-    def i(args: Any*): String = "   " ++ sc.s(args:_*) ++ "\n"
-    def l(args: Any*): String = sc.s(args:_*) ++ ":\n"
-}
-
-
-// LLVM Section
-
 
 // Internal CPS language for FUN
 abstract class KExp
@@ -95,6 +81,71 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
 
 //initial continuation
 def CPSi(e: Exp) = CPS(e)(KReturn)
+
+// //some testcases:
+// // numbers and vars   
+// println(CPSi(Num(1)).toString)
+// println(CPSi(Var("z")).toString)
+
+// //  a * 3
+// val e1 = Aop("*", Var("a"), Num(3))
+// println(CPSi(e1).toString)
+
+// // (a * 3) + 4
+// val e2 = Aop("+", Aop("*", Var("a"), Num(3)), Num(4))
+// println(CPSi(e2).toString)
+
+// // 2 + (a * 3)
+// val e3 = Aop("+", Num(2), Aop("*", Var("a"), Num(3)))
+// println(CPSi(e3).toString)
+
+// //(1 - 2) + (a * 3)
+// val e4 = Aop("+", Aop("-", Num(1), Num(2)), Aop("*", Var("a"), Num(3)))
+// println(CPSi(e4).toString)
+
+// // 3 + 4 ; 1 * 7
+// val es = Sequence(Aop("+", Num(3), Num(4)),
+//                   Aop("*", Num(1), Num(7)))
+// println(CPSi(es).toString)
+
+// // if (1 == 1) then 3 else 4
+// val e5 = If(Bop("==", Num(1), Num(1)), Num(3), Num(4))
+// println(CPSi(e5).toString)
+
+// // if (1 == 1) then 3 + 7 else 4 * 2
+// val ei = If(Bop("==", Num(1), Num(1)), 
+//                 Aop("+", Num(3), Num(7)),
+//                 Aop("*", Num(4), Num(2)))
+// println(CPSi(ei).toString)
+
+
+// // if (10 != 10) then e5 else 40
+// val e6 = If(Bop("!=", Num(10), Num(10)), e5, Num(40))
+// println(CPSi(e6).toString)
+
+
+// // foo(3)
+// val e7 = Call("foo", List(Num(3)))
+// println(CPSi(e7).toString)
+
+// // foo(3 * 1, 4, 5 + 6)
+// val e8 = Call("foo", List(Aop("*", Num(3), Num(1)), 
+//                           Num(4), 
+//                           Aop("+", Num(5), Num(6))))
+// println(CPSi(e8).toString)
+
+// // a * 3 ; b + 6
+// val e9 = Sequence(Aop("*", Var("a"), Num(3)), 
+//                   Aop("+", Var("b"), Num(6)))
+// println(CPSi(e9).toString)
+
+
+// val e10 = Aop("*", Aop("+", Num(1), Call("foo", List(Var("a"), Num(3)))), Num(4))
+// println(CPSi(e10).toString)
+
+
+
+
 
 // convenient string interpolations 
 // for instructions, labels and methods
@@ -191,7 +242,13 @@ def main(fname: String) = {
     val path = os.pwd / fname
     val file = fname.stripSuffix("." ++ path.ext)
     val tks = tokenise(os.read(path))
+    println("Tokenise___________________")
+    println(tks)
+
     val ast = parse_tks(tks)
+    println("Parse___________________")
+    println(ast)
+
     println(compile(ast))
 }
 
@@ -215,129 +272,5 @@ def run(fname: String) = {
     os.proc(os.pwd / (file ++ ".bin")).call(stdout = os.Inherit)
     println(s"done.")
 }
-
-
-
-
-
-
-
-@arg(doc = "Question 1 Tests")
-@main
-def q1() = {
-    //some testcases:
-    // numbers and vars   
-    println(CPSi(Num(1)).toString)
-    println(CPSi(Var("z")).toString)
-
-    //  a * 3
-    val e1 = Aop("*", Var("a"), Num(3))
-    println(CPSi(e1).toString)
-
-    // (a * 3) + 4
-    val e2 = Aop("+", Aop("*", Var("a"), Num(3)), Num(4))
-    println(CPSi(e2).toString)
-
-    // 2 + (a * 3)
-    val e3 = Aop("+", Num(2), Aop("*", Var("a"), Num(3)))
-    println(CPSi(e3).toString)
-
-    //(1 - 2) + (a * 3)
-    val e4 = Aop("+", Aop("-", Num(1), Num(2)), Aop("*", Var("a"), Num(3)))
-    println(CPSi(e4).toString)
-
-    // 3 + 4 ; 1 * 7
-    val es = Sequence(Aop("+", Num(3), Num(4)),
-                      Aop("*", Num(1), Num(7)))
-    println(CPSi(es).toString)
-
-    // if (1 == 1) then 3 else 4
-    val e5 = If(Bop("==", Num(1), Num(1)), Num(3), Num(4))
-    println(CPSi(e5).toString)
-
-    // if (1 == 1) then 3 + 7 else 4 * 2
-    val ei = If(Bop("==", Num(1), Num(1)), 
-                    Aop("+", Num(3), Num(7)),
-                    Aop("*", Num(4), Num(2)))
-    println(CPSi(ei).toString)
-
-
-    // if (10 != 10) then e5 else 40
-    val e6 = If(Bop("!=", Num(10), Num(10)), e5, Num(40))
-    println(CPSi(e6).toString)
-
-
-    // foo(3)
-    val e7 = Call("foo", List(Num(3)))
-    println(CPSi(e7).toString)
-
-    // foo(3 * 1, 4, 5 + 6)
-    val e8 = Call("foo", List(Aop("*", Num(3), Num(1)), 
-                              Num(4), 
-                              Aop("+", Num(5), Num(6))))
-    println(CPSi(e8).toString)
-
-    // a * 3 ; b + 6
-    val e9 = Sequence(Aop("*", Var("a"), Num(3)), 
-                      Aop("+", Var("b"), Num(6)))
-    println(CPSi(e9).toString)
-
-
-    val e10 = Aop("*", Aop("+", Num(1), Call("foo", List(Var("a"), Num(3)))), Num(4))
-    println(CPSi(e10).toString)
-
-}
-
-
-@arg(doc = "Question 2 Tests")
-@main
-def q2() = {
-      
-  // CPS functions
-
-  def fact(n: Int) : Int = 
-    if (n == 0) 1 else n * fact(n - 1)
-
-  fact(6)
-
-  def factT(n: Int, acc: Int) : Int =
-    if (n == 0) acc else factT(n - 1, acc * n)
-
-  factT(6, 1)
-
-  def factC(n: Int, ret: Int => Int) : Int = {
-    if (n == 0) ret(1) 
-    else factC(n - 1, x => ret(x * n))
-  }
-
-  factC(6, x => x)
-  factC(6, x => {println(s"The final Result is $x") ; 0})
-  factC(6, _ + 1)
-
-  def fibC(n: Int, ret: Int => Int) : Int = {
-    if (n == 0 || n == 1) ret(1)
-    else fibC(n - 1, x => fibC(n - 2, y => ret(x + y)))
-  }
-
-  fibC(10, x => {println(s"Result: $x") ; 1})
-
-
-}
-
-
-@arg(doc = "Question 3 Tests")
-@main
-def q3() = {
-
-
-}
-
-@arg(doc = "All tests.")
-@main
-def all() = { 
-    q1(); 
-    q2(); 
-    q3(); 
-} 
 
 
