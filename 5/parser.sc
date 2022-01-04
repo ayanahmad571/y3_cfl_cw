@@ -119,7 +119,18 @@ case object StrParserToken extends Parser[List[Token], String] {
   }
 }
 
-// atomic parser for (tokenised) strings
+// atomic parser for (tokenised) char
+case object ChrParserToken extends Parser[List[Token], Char] {
+  def parse(tkns: List[Token]) = tkns match {
+    case T_CHR(tk)::rest => tk match{
+      case "\'\\n\'" => Set(('\n', rest))
+      case a => Set((a(1), rest))
+    }
+    case _ => Set()
+  }
+}
+
+// atomic parser for (tokenised) Types
 case object TypeParser extends Parser[List[Token], String] {
   def parse(tkns: List[Token]) = tkns match {
     case T_TYPE(tk)::rest => Set((tk, rest))
@@ -158,8 +169,8 @@ case class PrintInt(e: Exp) extends Exp
 case class PrintFloat(e: Exp) extends Exp
 case object PrintSpace extends Exp
 case object PrintStar extends Exp
-case class PrintChar(e: String) extends Exp
-case class PrintCharExp(s: String, e: Exp) extends Exp
+case class PrintChar(e: Char) extends Exp
+case class PrintCharExp(s: Char, e: Exp) extends Exp
 case object NewLine extends Exp
 
 case class Bop(o: String, a1: Exp, a2: Exp) extends BExp
@@ -185,8 +196,8 @@ lazy val M: Parser[List[Token], Exp] =
   (T_KWD("print_space") ~ T_LPAREN_N ~ T_RPAREN_N ) ==> { case _ ~ _ ~  _ => PrintSpace: Exp } || 
   (T_KWD("print_int") ~ T_LPAREN_N ~ Exp ~ T_RPAREN_N ) ==> { case _ ~ _ ~ y ~ _ => PrintInt(y): Exp } || 
   // (T_KWD("print_int") ~ T_LPAREN_N ~ NumParser ~ T_RPAREN_N ) ==> { case _ ~ _ ~ y ~ _ => PrintInt(): Exp } || 
-  (T_KWD("print_char") ~ T_LPAREN_N ~ StrParserToken ~ T_RPAREN_N) ==> { case _ ~ _ ~ y ~ _ => PrintChar(y): Exp } ||
-  (T_KWD("print_char") ~ T_LPAREN_N ~ StrParserToken ~ T_OP("+") ~ T_LPAREN_N ~ Exp ~ T_RPAREN_N ~ T_RPAREN_N) ==> 
+  (T_KWD("print_char") ~ T_LPAREN_N ~ ChrParserToken ~ T_RPAREN_N) ==> { case _ ~ _ ~ y ~ _ => PrintChar(y): Exp } ||
+  (T_KWD("print_char") ~ T_LPAREN_N ~ ChrParserToken ~ T_OP("+") ~ T_LPAREN_N ~ Exp ~ T_RPAREN_N ~ T_RPAREN_N) ==> 
     { case _ ~ _ ~ y ~ _ ~ _ ~ w ~ _ ~ _  => {PrintCharExp(y,w): Exp} } || L
 
 

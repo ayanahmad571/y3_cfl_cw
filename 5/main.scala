@@ -31,12 +31,20 @@ case class KVar(s: String) extends KVal
 // case class KVar(s: String, ty: Ty = "UNDEF") extends KVal
 
 case object KSkip extends KVal
+case object KPrintSpace extends KVal
+case object KPrintStar extends KVal
+case object KNewLine extends KVal
 case class KNum(i: Int) extends KVal
 case class KFNum(i: Float) extends KVal
 case class Kop(o: String, v1: KVal, v2: KVal) extends KVal
 case class KCall(o: String, vrs: List[KVal]) extends KVal
 case class KWrite(v: KVal) extends KVal
 case class KWriteStr(s: String) extends KVal
+case class KWriteInt(v: KVal) extends KVal
+case class KWriteFloat(v: KVal) extends KVal
+case class KWriteChar(s: Int) extends KVal
+
+
 
 case class KLet(x: String, e1: KVal, e2: KExp) extends KExp {
   override def toString = s"LET $x = $e1 in \n$e2" 
@@ -56,9 +64,13 @@ case class KReturn(v: KVal) extends KExp
 // continuation k.
 def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
   case Skip => k(KSkip)
+  case PrintSpace => k(KPrintSpace)
+  case PrintStar => k(KPrintStar)
+  case NewLine => k(KNewLine)
   case Var(s) => k(KVar(s))
   case Num(i) => k(KNum(i))
   case FNum(i) => k(KFNum(i))
+  case WriteStr(e) => k(KWriteStr(e))
   case Aop(o, e1, e2) => {
     val z = Fresh("tmp")
     CPS(e1)(y1 => 
@@ -86,40 +98,34 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
     val z = Fresh("tmp")
     CPS(e)(y => KLet(z, KWrite(y), k(KVar(z))))
   }
-  case WriteStr(e) => {
+  case PrintInt(e) => {
     val z = Fresh("tmp")
-    CPS(e)(y => KLet(z, KWriteStr(y), k(KVar(z))))
+    CPS(e)(y => KLet(z, KWriteInt(y), k(KVar(z))))
   }
-
+  case PrintFloat(e) => {
+    val z = Fresh("tmp")
+    CPS(e)(y => KLet(z, KWriteFloat(y), k(KVar(z))))
+  }
+  case PrintChar(e) => {
+    val z = Fresh("tmp")
+    val v = e.toInt
+    KLet(z, KWriteChar(v), k(KVar(z)))
+  }
+  case PrintCharExp(s, e) => {
+    val f = s.toInt
+    val z = Fresh("tmp")
+    CPS(e)(
+      y => {
+        CPS(Num(f))(y1 => 
+          CPS(e)(y2 => KLet(z, Kop("+", y1, y2), k(KVar(z)))))
+      }
+    )
+  }
 }   
 
 //Const
 //FConst
-//WriteStr
 //ChConst
-// PrintInt
-// PrintFloat
-// PrintSpace
-// PrintStar
-// PrintChar
-// PrintCharExp
-// NewLine
-
-lazy val M: Parser[List[Token], Exp] =
-  (T_KWD("skip")) ==> {case _ => Skip : Exp } ||
-  (T_KWD("skip") ~ T_LPAREN_N ~ T_RPAREN_N) ==> {case _ ~ _ ~ _ => Skip : Exp } ||
-  (T_KWD("write") ~ L) ==> { case _ ~ y => Write(y): Exp } ||
-  (T_KWD("write") ~ StrParserToken) ==> { case _ ~ y => WriteStr(y): Exp } || 
-  (T_KWD("new_line") ~ T_LPAREN_N ~ T_RPAREN_N ) ==> { case _ ~ _ ~  _ => NewLine: Exp } || 
-  (T_KWD("print_star") ~ T_LPAREN_N ~ T_RPAREN_N ) ==> { case _ ~ _ ~  _ => PrintStar: Exp } || 
-  (T_KWD("print_space") ~ T_LPAREN_N ~ T_RPAREN_N ) ==> { case _ ~ _ ~  _ => PrintSpace: Exp } || 
-  (T_KWD("print_int") ~ T_LPAREN_N ~ Exp ~ T_RPAREN_N ) ==> { case _ ~ _ ~ y ~ _ => PrintInt(y): Exp } || 
-  // (T_KWD("print_int") ~ T_LPAREN_N ~ NumParser ~ T_RPAREN_N ) ==> { case _ ~ _ ~ y ~ _ => PrintInt(): Exp } || 
-  (T_KWD("print_char") ~ T_LPAREN_N ~ StrParserToken ~ T_RPAREN_N) ==> { case _ ~ _ ~ y ~ _ => PrintChar(y): Exp } ||
-  (T_KWD("print_char") ~ T_LPAREN_N ~ StrParserToken ~ T_OP("+") ~ T_LPAREN_N ~ Exp ~ T_RPAREN_N ~ T_RPAREN_N) ==> 
-    { case _ ~ _ ~ y ~ _ ~ _ ~ w ~ _ ~ _  => {PrintCharExp(y,w): Exp} } || L
-
-
 
 //initial continuation
 def CPSi(e: Exp) = CPS(e)(KReturn)
@@ -296,7 +302,7 @@ def main(fname: String) = {
     println("_________________________________________")
  
     println("Compile___________________")
-    println(compile(ast))
+    // println(compile(ast))
     println("_________________________________________")
 }
 

@@ -28,7 +28,7 @@ def x_iter(x: Double, y: Double) : Void = {
 
 def y_iter(y: Double) : Void = {
   if y <= Ymax
-  then { x_iter(Xmin, y) ; print_char('\n') ; y_iter(y + Ystep) }
+  then { x_iter(Xmin, y) ; print_char('\n') ;print_char(' ') ;print_char('a') ;print_char('<') ; y_iter(y + Ystep) }
   else skip() 
 };    
 

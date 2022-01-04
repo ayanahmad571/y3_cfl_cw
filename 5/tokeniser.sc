@@ -51,6 +51,7 @@ case class T_OP(s: String) extends Token
 case class T_NUM(n: Int) extends Token
 case class T_KWD(s: String) extends Token
 case class T_STR(s: String) extends Token
+case class T_CHR(s: String) extends Token
 
 case class T_FNUM(n: Float) extends Token
 case class T_TYPE(s: String) extends Token
@@ -249,7 +250,7 @@ def inj(r: Rexp, c: Char, v: Val) : Val = (r, v) match {
 
 // lexing functions including simplification
 def lex_simp(r: Rexp, s: List[Char]) : Val = s match {
-  case Nil => if (nullable(r)) mkeps(r) else  { throw new Exception("lexing error") } 
+  case Nil => if (nullable(r)) mkeps(r) else  { println(r); throw new Exception("lexing error") } 
   case c::cs => {
     val (r_simp, f_simp) = simp(der(c, r))
     inj(r, c, f_simp(lex_simp(r_simp, cs)))
@@ -267,6 +268,9 @@ val DIGITS_NO_ZERO : Rexp = RANGE(('1' to '9').toList)
 
 val KEYWORD : Rexp = "def" | "val" | "while" | "if" | "then" | "else" | "do" | "for" | "to" | "true" | "false" | "read" | "write" | "skip" | "upto" | "print_char" | "print_int" | "new_line" | "print_space" | "print_star"
 val OP: Rexp = "+" | "-" | "*" | "%" | "/" | "==" | "!=" | ">" | "<" | "<=" | ">=" | ":=" | "&&" | "||" | "=" | ":"
+
+val CHAR_OP: Rexp = "," | "+" | "-" | "*" | "%" | "/" | "=" | "!" | ">" | "<" | "&" | "|" | ":" 
+
 val LETTERS : Rexp = RANGE(LETTERS_LIST)
 val CAPITAL_LETTERS : Rexp = RANGE(CAPITAL_LETTERS_LIST)
 val SYMBOLS : Rexp = RANGE(LETTERS_LIST ::: EXTRA_CHARS_LIST ) 
@@ -290,7 +294,7 @@ val DOUBLE = OPTIONAL(PREFIXES) ~ STAR(DIGIT) ~ OPTIONAL(".") ~ PLUS(DIGIT)
 val ID = LETTERS ~ (UNDERSCORE | LETTERS | DIGIT).% // star or PLUS
 val ID_CONST = CAPITAL_LETTERS ~ (UNDERSCORE | LETTERS | DIGIT).% // star or PLUS
 val STRING: Rexp = "\"" ~ (SYMBOLS | DIGIT | WHITESPACE).% ~ "\""
-val STRING_S: Rexp = "\'" ~ (SYMBOLS | DIGIT | WHITESPACE).% ~ "\'"
+val CHAR_S: Rexp = "\'" ~ (SYMBOLS | DIGIT | WHITESPACE | CHAR_OP).% ~ "\'"
 val COMMENT : Rexp = "//" ~ (SYMBOLS | CHAR(' ') | DIGIT | RPAREN | LPAREN | COMMA | "//" | "\'" | "\"").% ~ NEWLINE
 
 
@@ -303,7 +307,8 @@ val WHILE_REGS = (("k" $ KEYWORD) |
                   ("d" $ DOUBLE) | 
                   ("s" $ SEMI) | 
                   ("l" $ COMMA) | 
-                  ("str" $ (STRING | STRING_S)) |
+                  ("str" $ STRING ) |
+                  ("chr" $ CHAR_S) |
                   ("p" $ (LPAREN | RPAREN)) | 
                   ("c" $ COMMENT) | 
                   ("w" $ WHITESPACE)).%
@@ -324,6 +329,7 @@ val token : PartialFunction[(String, String), Token] = {
   case ("d", s) => T_FNUM(s.toFloat)
   case ("k", s) => T_KWD(s)
   case ("str", s) => T_STR(s)
+  case ("chr", s) => T_CHR(s)
 }
 
 def tokenise(s: String) : List[Token] = lexing_simp(WHILE_REGS, s).collect(token)
