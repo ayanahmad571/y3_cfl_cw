@@ -28,10 +28,15 @@ abstract class KExp
 abstract class KVal
 
 case class KVar(s: String) extends KVal
+// case class KVar(s: String, ty: Ty = "UNDEF") extends KVal
+
+case object KSkip extends KVal
 case class KNum(i: Int) extends KVal
+case class KFNum(i: Float) extends KVal
 case class Kop(o: String, v1: KVal, v2: KVal) extends KVal
 case class KCall(o: String, vrs: List[KVal]) extends KVal
 case class KWrite(v: KVal) extends KVal
+case class KWriteStr(s: String) extends KVal
 
 case class KLet(x: String, e1: KVal, e2: KExp) extends KExp {
   override def toString = s"LET $x = $e1 in \n$e2" 
@@ -44,12 +49,16 @@ case class KIf(x1: String, e1: KExp, e2: KExp) extends KExp {
 }
 case class KReturn(v: KVal) extends KExp
 
+// def typ_val(v: KVal , ts: TyEnv) = ???
+// def typ_exp(a: KExp , ts: TyEnv) = ???
 
 // CPS translation from Exps to KExps using a
 // continuation k.
 def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
-  case Var(s) => k(KVar(s)) 
+  case Skip => k(KSkip)
+  case Var(s) => k(KVar(s))
   case Num(i) => k(KNum(i))
+  case FNum(i) => k(KFNum(i))
   case Aop(o, e1, e2) => {
     val z = Fresh("tmp")
     CPS(e1)(y1 => 
@@ -77,85 +86,58 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
     val z = Fresh("tmp")
     CPS(e)(y => KLet(z, KWrite(y), k(KVar(z))))
   }
+  case WriteStr(e) => {
+    val z = Fresh("tmp")
+    CPS(e)(y => KLet(z, KWriteStr(y), k(KVar(z))))
+  }
+
 }   
+
+//Const
+//FConst
+//WriteStr
+//ChConst
+// PrintInt
+// PrintFloat
+// PrintSpace
+// PrintStar
+// PrintChar
+// PrintCharExp
+// NewLine
+
+lazy val M: Parser[List[Token], Exp] =
+  (T_KWD("skip")) ==> {case _ => Skip : Exp } ||
+  (T_KWD("skip") ~ T_LPAREN_N ~ T_RPAREN_N) ==> {case _ ~ _ ~ _ => Skip : Exp } ||
+  (T_KWD("write") ~ L) ==> { case _ ~ y => Write(y): Exp } ||
+  (T_KWD("write") ~ StrParserToken) ==> { case _ ~ y => WriteStr(y): Exp } || 
+  (T_KWD("new_line") ~ T_LPAREN_N ~ T_RPAREN_N ) ==> { case _ ~ _ ~  _ => NewLine: Exp } || 
+  (T_KWD("print_star") ~ T_LPAREN_N ~ T_RPAREN_N ) ==> { case _ ~ _ ~  _ => PrintStar: Exp } || 
+  (T_KWD("print_space") ~ T_LPAREN_N ~ T_RPAREN_N ) ==> { case _ ~ _ ~  _ => PrintSpace: Exp } || 
+  (T_KWD("print_int") ~ T_LPAREN_N ~ Exp ~ T_RPAREN_N ) ==> { case _ ~ _ ~ y ~ _ => PrintInt(y): Exp } || 
+  // (T_KWD("print_int") ~ T_LPAREN_N ~ NumParser ~ T_RPAREN_N ) ==> { case _ ~ _ ~ y ~ _ => PrintInt(): Exp } || 
+  (T_KWD("print_char") ~ T_LPAREN_N ~ StrParserToken ~ T_RPAREN_N) ==> { case _ ~ _ ~ y ~ _ => PrintChar(y): Exp } ||
+  (T_KWD("print_char") ~ T_LPAREN_N ~ StrParserToken ~ T_OP("+") ~ T_LPAREN_N ~ Exp ~ T_RPAREN_N ~ T_RPAREN_N) ==> 
+    { case _ ~ _ ~ y ~ _ ~ _ ~ w ~ _ ~ _  => {PrintCharExp(y,w): Exp} } || L
+
+
 
 //initial continuation
 def CPSi(e: Exp) = CPS(e)(KReturn)
 
-// //some testcases:
-// // numbers and vars   
-// println(CPSi(Num(1)).toString)
-// println(CPSi(Var("z")).toString)
+// val ai = List(("m", "Int"),("m", "Int"),("m", "Int"),("m", "Int"))
 
-// //  a * 3
-// val e1 = Aop("*", Var("a"), Num(3))
-// println(CPSi(e1).toString)
-
-// // (a * 3) + 4
-// val e2 = Aop("+", Aop("*", Var("a"), Num(3)), Num(4))
-// println(CPSi(e2).toString)
-
-// // 2 + (a * 3)
-// val e3 = Aop("+", Num(2), Aop("*", Var("a"), Num(3)))
-// println(CPSi(e3).toString)
-
-// //(1 - 2) + (a * 3)
-// val e4 = Aop("+", Aop("-", Num(1), Num(2)), Aop("*", Var("a"), Num(3)))
-// println(CPSi(e4).toString)
-
-// // 3 + 4 ; 1 * 7
-// val es = Sequence(Aop("+", Num(3), Num(4)),
-//                   Aop("*", Num(1), Num(7)))
-// println(CPSi(es).toString)
-
-// // if (1 == 1) then 3 else 4
-// val e5 = If(Bop("==", Num(1), Num(1)), Num(3), Num(4))
-// println(CPSi(e5).toString)
-
-// // if (1 == 1) then 3 + 7 else 4 * 2
-// val ei = If(Bop("==", Num(1), Num(1)), 
-//                 Aop("+", Num(3), Num(7)),
-//                 Aop("*", Num(4), Num(2)))
-// println(CPSi(ei).toString)
-
-
-// // if (10 != 10) then e5 else 40
-// val e6 = If(Bop("!=", Num(10), Num(10)), e5, Num(40))
-// println(CPSi(e6).toString)
-
-
-// // foo(3)
-// val e7 = Call("foo", List(Num(3)))
-// println(CPSi(e7).toString)
-
-// // foo(3 * 1, 4, 5 + 6)
-// val e8 = Call("foo", List(Aop("*", Num(3), Num(1)), 
-//                           Num(4), 
-//                           Aop("+", Num(5), Num(6))))
-// println(CPSi(e8).toString)
-
-// // a * 3 ; b + 6
-// val e9 = Sequence(Aop("*", Var("a"), Num(3)), 
-//                   Aop("+", Var("b"), Num(6)))
-// println(CPSi(e9).toString)
-
-
-// val e10 = Aop("*", Aop("+", Num(1), Call("foo", List(Var("a"), Num(3)))), Num(4))
-// println(CPSi(e10).toString)
-
-
-
-
+// println(argListToString(ai))
 
 // convenient string interpolations 
 // for instructions, labels and methods
 import scala.language.implicitConversions
 import scala.language.reflectiveCalls
 
-implicit def sring_inters(sc: StringContext) = new {
+implicit def string_inters(sc: StringContext) = new {
     def i(args: Any*): String = "   " ++ sc.s(args:_*) ++ "\n"
     def l(args: Any*): String = sc.s(args:_*) ++ ":\n"
     def m(args: Any*): String = sc.s(args:_*) ++ "\n"
+    def k(args: Any*): String = sc.s(args:_*)
 }
 
 // mathematical and boolean operations
@@ -168,6 +150,16 @@ def compile_op(op: String) = op match {
   case "==" => "icmp eq i32 "
   case "<=" => "icmp sle i32 "     // signed less or equal
   case "<"  => "icmp slt i32 "     // signed less than
+}
+
+def compile_dop(op: String) = op match {
+  case "+" => "fadd float "
+  case "*" => "fmul float "
+  case "-" => "fsub float "
+  case "==" => "fcmp oeq float "
+  case "!=" => "fcmp one float "
+  case "<=" => "fcmp ole float "
+  case "<" => "fcmp olt float "
 }
 
 // compile K values
@@ -205,19 +197,65 @@ val prelude = """
 
 declare i32 @printf(i8*, ...)
 
-define i32 @printInt(i32 %x) {
-   %t0 = getelementptr [4 x i8], [4 x i8]* @.str, i32 0, i32 0
-   call i32 (i8*, ...) @printf(i8* %t0, i32 %x) 
-   ret i32 %x
+@.str_nl = private constant [2 x i8] c"\0A\00"
+@.str_star = private constant [2 x i8] c"*\00"
+@.str_space = private constant [2 x i8] c" \00"
+
+define void @new_line() #0 {
+  %t0 = getelementptr [2 x i8], [2 x i8]* @.str_nl, i32 0, i32 0
+  %1 = call i32 (i8*, ...) @printf(i8* %t0)
+  ret void
 }
 
-"""
+define void @print_star() #0 {
+  %t0 = getelementptr [2 x i8], [2 x i8]* @.str_star, i32 0, i32 0
+  %1 = call i32 (i8*, ...) @printf(i8* %t0)
+  ret void
+}
 
+define void @print_space() #0 {
+  %t0 = getelementptr [2 x i8], [2 x i8]* @.str_space, i32 0, i32 0
+  %1 = call i32 (i8*, ...) @printf(i8* %t0)
+  ret void
+}
+
+define void @skip() #0 {
+  ret void
+}
+
+@.str = private constant [4 x i8] c"%d\0A\00"
+
+define void @print_int(i32 %x) {
+   %t0 = getelementptr [4 x i8], [4 x i8]* @.str, i32 0, i32 0
+   call i32 (i8*, ...) @printf(i8* %t0, i32 %x) 
+   ret void
+}
+
+; END OF BUILD-IN FUNCTIONS (prelude)
+
+"""
+def retType(in: String) : String = in match {
+  case "Int" => "i32"
+  case "Double" => "double"
+  case "Float" => "float"
+
+}
+
+def argListToStringHelper(s: List[(String, String)]) : String = s match {
+  case x :: xs => k"${retType(x._2)} %${x._1} , " + argListToStringHelper(xs)
+  case Nil => ""
+}
+
+def argListToString(s: List[(String, String)]) : String = {
+  val vals = argListToStringHelper(s);
+  val p = vals.patch(vals.lastIndexOf(','), "", 1)
+  p
+}
 
 // compile function for declarations and main
 def compile_decl(d: Decl) : String = d match {
   case Def(name, args, ty, body) => { 
-    m"define i32 @$name (${args.mkString("i32 %", ", i32 %", "")}) {" ++
+    m"define ${retType(ty)} @$name (${argListToString(args)}) {" ++
     compile_exp(CPSi(body)) ++
     m"}\n"
   }
@@ -225,6 +263,12 @@ def compile_decl(d: Decl) : String = d match {
     m"define i32 @main() {" ++
     compile_exp(CPS(body)(_ => KReturn(KNum(0)))) ++
     m"}\n"
+  }
+  case Const(name, x) => {
+    m"@$name = global i32 $x \n"
+  }
+  case FConst(name, x) => {
+    m"@$name = global float $x \n"
   }
 }
 
@@ -244,14 +288,16 @@ def main(fname: String) = {
     val tks = tokenise(os.read(path))
     println("Tokenise___________________")
     println(tks)
-    println("Tokenise_____________________________________")
+    println("_____________________________________")
     
     val ast = parse_tks(tks)
     println("Parse___________________")
     println(ast)
-    println("Parse_________________________________________")
-
-    // println(compile(ast))
+    println("_________________________________________")
+ 
+    println("Compile___________________")
+    println(compile(ast))
+    println("_________________________________________")
 }
 
 @main

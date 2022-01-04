@@ -218,19 +218,19 @@ lazy val BExp: Parser[List[Token], BExp] =
 
 lazy val Defn: Parser[List[Token], Decl] =
   (T_KWD("def") ~ IdParser ~ T_LPAREN_N ~ ArgParser(IdParser, T_COMMA) ~ T_RPAREN_N ~ T_OP("=") ~ T_LPAREN_C ~ Exp ~ T_RPAREN_C ) ==>
-     { case _ ~ y ~ _ ~ w ~ _ ~ _ ~ _ ~ r ~ _ => Def(y, w, "Void",  r): Decl } ||
+     { case _ ~ y ~ _ ~ w ~ _ ~ _ ~ _ ~ r ~ _ => Def(y, w, "Int",  r): Decl } ||
   (T_KWD("def") ~ IdParser ~ T_LPAREN_N ~ ArgTypeParser(IdParser, T_OP(":"), TypeParser, T_COMMA) ~ T_RPAREN_N ~ T_OP(":") ~ TypeParser ~ T_OP("=") ~ T_LPAREN_C ~ Exp ~ T_RPAREN_C) ==>
      { case _ ~ y ~ _ ~ w ~ _ ~ _ ~ t ~ _ ~ _ ~ r ~ _ => Def(y, w, t, r): Decl } ||
   (T_KWD("def") ~ IdParser ~ T_LPAREN_N ~ ArgParser(IdParser, T_COMMA) ~ T_RPAREN_N ~ T_OP("=") ~ Exp) ==>
-     { case _ ~ y ~ _ ~ w ~ _ ~ _ ~ r => Def(y, w, "Void",  r): Decl } ||
+     { case _ ~ y ~ _ ~ w ~ _ ~ _ ~ r => Def(y, w, "Int",  r): Decl } ||
   (T_KWD("def") ~ IdParser ~ T_LPAREN_N ~ ArgTypeParser(IdParser, T_OP(":"), TypeParser, T_COMMA) ~ T_RPAREN_N ~ T_OP(":") ~ TypeParser ~ T_OP("=") ~ Exp) ==>
      { case _ ~ y ~ _ ~ w ~ _ ~ _ ~ t ~ _ ~ r => Def(y, w, t,  r): Decl } ||
   (T_KWD("def") ~ IdParser ~ T_LPAREN_N ~ T_RPAREN_N ~ T_OP("=") ~ T_LPAREN_C ~ Exp ~ T_RPAREN_C ) ==>
-     { case _ ~ y ~ _ ~ _ ~ _ ~ _ ~ r ~ _ => Def(y, List(), "Void",  r): Decl } ||
+     { case _ ~ y ~ _ ~ _ ~ _ ~ _ ~ r ~ _ => Def(y, List(), "Int",  r): Decl } ||
   (T_KWD("def") ~ IdParser ~ T_LPAREN_N ~ T_RPAREN_N ~ T_OP(":") ~ TypeParser ~ T_OP("=") ~ T_LPAREN_C ~ Exp ~ T_RPAREN_C) ==>
      { case _ ~ y ~ _ ~ _ ~ _ ~ t ~ _ ~ _ ~ r ~ _ => Def(y, List(), t, r): Decl } ||
   (T_KWD("def") ~ IdParser ~ T_LPAREN_N ~ T_RPAREN_N ~ T_OP("=") ~ Exp) ==>
-     { case _ ~ y ~ _ ~ _ ~ _ ~ r => Def(y, List(), "Void",  r): Decl } ||
+     { case _ ~ y ~ _ ~ _ ~ _ ~ r => Def(y, List(), "Int",  r): Decl } ||
   (T_KWD("def") ~ IdParser ~ T_LPAREN_N ~ T_RPAREN_N ~ T_OP(":") ~ TypeParser ~ T_OP("=") ~ Exp) ==>
      { case _ ~ y ~ _ ~ _ ~ _ ~ t ~ _ ~ r => Def(y, List(), t,  r): Decl } 
   
