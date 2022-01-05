@@ -172,15 +172,14 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
     CPS(e1)(_ => CPS(e2)(y2 => k(y2)))
 
   case PrintInt(e) => {
-    // val z = Fresh("tmp")
-    // CPS(e)(y => KLet(z, KWriteInt(y), k(KVar(z))))
     CPS(e)(y => KVoidPrint(KWriteInt(y), k(KEmpty)))
   }
-  case PrintFloat(e) => CPS(e)(y => k(KWriteFloat(y)))
+  case PrintFloat(e) => {
+    CPS(e)(y => KVoidPrint(KWriteFloat(y), k(KEmpty)))
+  }
   case PrintChar(e) => {
-    val z = Fresh("tmp")
     val v = e.toInt
-    KLet(z, KWriteChar(v), k(KVar(z)))
+    KVoidPrint(KWriteChar(v), k(KEmpty))
   }
   case PrintCharExp(s, e) => {
     val f = s.toInt
@@ -260,7 +259,9 @@ def compile_val(v: KVal) : String = v match {
   case KWrite(x1) =>
     s"call void @print_int (i32 ${compile_val(x1)})"
   case KWriteInt(x1) => 
-   {s"call void @print_int (i32 ${compile_val(x1)})"}
+    {s"call void @print_int (i32 ${compile_val(x1)})"}
+  case KWriteChar(n) =>
+    s"call void @print_char ([2 x i8] c\"${(n).toChar}\\00\")"
   case KSkip => "call void @skip()"
   case KNewLine => "call void @new_line()"
 }
@@ -335,6 +336,15 @@ define void @print_int(i32 %x) {
    ret void
 }
 
+define void @print_char([2 x i8] %0) {
+  %k_1 = alloca [2 x i8]
+  store [2 x i8] %0, [2 x i8]* %k_1
+  %k_2 = bitcast [2 x i8]* %k_1 to [2 x i8]*
+  %t0 = getelementptr [2 x i8], [2 x i8]* %k_2, i32 0, i32 0
+  %2 = call i32 (i8*, ...) @printf(i8* %t0)
+  ret void
+}
+
 ; END OF BUILD-IN FUNCTIONS (prelude)
 
 """
@@ -352,9 +362,12 @@ def argListToStringHelper(s: List[(String, String)]) : String = s match {
 }
 
 def argListToString(s: List[(String, String)]) : String = {
-  val vals = argListToStringHelper(s);
-  val p = vals.patch(vals.lastIndexOf(','), "", 1)
-  p
+  if (s.length < 1) ""
+  else {
+    val vals = argListToStringHelper(s);
+    val p = vals.patch(vals.lastIndexOf(','), "", 1)
+    p
+  }
 }
 
 // compile function for declarations and main
