@@ -46,34 +46,53 @@ define void @print_char([2 x i8] %0) {
 
 ; END OF BUILD-IN FUNCTIONS (prelude)
 
-@Max = global i32 10 
+define i32 @fact (i32 %n  ) {
+   %tmp_0 = icmp eq i32  %n, 0
+   br i1 %tmp_0, label %if_branch_4, label %else_branch_5
 
-define i32 @sqr (i32 %x  ) {
-   %tmp_0 = mul i32  %x, %x
-   ret i32 %tmp_0
+if_branch_4:
+   ret i32 1
+
+else_branch_5:
+   %tmp_2 = sub i32  %n, 1
+   %tmp_3 = call i32 @fact (i32 %tmp_2  )
+   %tmp_1 = mul i32  %n, %tmp_3
+   ret i32 %tmp_1
 }
 
-define void @all (i32 %n  ) {
-   %tmp_2 = load i32 , i32* @Max
-   %tmp_1 = icmp sle i32  %n, %tmp_2
-   br i1 %tmp_1, label %if_branch_5, label %else_branch_6
+define i32 @facT (i32 %n , i32 %acc  ) {
+   %tmp_6 = icmp eq i32  %n, 0
+   br i1 %tmp_6, label %if_branch_10, label %else_branch_11
 
-if_branch_5:
-   %tmp_3 = call i32 @sqr (i32 %n  )
-   call void @print_int (i32 %tmp_3)
-   call void @new_line()
-   %tmp_4 = add i32  %n, 1
-   call void @all (i32 %tmp_4  )
+if_branch_10:
+   ret i32 %acc
+
+else_branch_11:
+   %tmp_7 = sub i32  %n, 1
+   %tmp_8 = mul i32  %n, %acc
+   %tmp_9 = call i32 @facT (i32 %tmp_7 , i32 %tmp_8  )
+   ret i32 %tmp_9
+}
+
+define i32 @facTi (i32 %n  ) {
+   %tmp_12 = call i32 @facT (i32 %n , i32 1  )
+   ret i32 %tmp_12
+}
+
+define void @top () {
+   %tmp_13 = call i32 @fact (i32 6  )
+   call void @print_int (i32 %tmp_13)
+   call void @print_char ([2 x i8] c",\00")
+   %tmp_14 = call i32 @facTi (i32 6  )
+   call void @print_int (i32 %tmp_14)
+   call void @print_char ([2 x i8] c"
+\00")
    
-   ret void
-
-else_branch_6:
-   call void @skip()
    ret void
 }
 
 define i32 @main() {
-   call void @all (i32 0  )
+   call void @top ()
    ret i32 0
 }
 

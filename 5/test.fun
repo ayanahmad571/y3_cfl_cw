@@ -1,4 +1,4 @@
-// Mandelbrot program (without character constants)
+// Mandelbrot program (with character constants)
 
 val Ymin: Double = -1.3;
 val Ymax: Double =  1.3;
@@ -13,9 +13,9 @@ val Maxiters: Int = 1000;
 def m_iter(m: Int, x: Double, y: Double,
                    zr: Double, zi: Double) : Void = {
   if Maxiters <= m
-  then print_star() 
+  then print_char(' ') 
   else {
-    if 4.0 <= zi*zi+zr*zr then print_space() 
+    if 4.0 <= zi*zi+zr*zr then print_char('0' + (m % 10)) 
     else m_iter(m + 1, x, y, x+zr*zr-zi*zi, 2.0*zr*zi+y) 
   }
 };
@@ -28,7 +28,7 @@ def x_iter(x: Double, y: Double) : Void = {
 
 def y_iter(y: Double) : Void = {
   if y <= Ymax
-  then { x_iter(Xmin, y) ; new_line() ; y_iter(y + Ystep) }
+  then { x_iter(Xmin, y) ; print_char('\n') ; y_iter(y + Ystep) }
   else skip() 
 };    
 

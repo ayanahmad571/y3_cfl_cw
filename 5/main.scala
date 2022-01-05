@@ -73,6 +73,7 @@ case class KWriteStr(s: String) extends KVal
 case class KWriteInt(v: KVal) extends KVal
 case class KWriteFloat(v: KVal) extends KVal
 case class KWriteChar(s: Int) extends KVal
+case class KWriteCharExp(s: KVal) extends KVal
 
 
 
@@ -208,15 +209,16 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
     KVoidPrint(KWriteChar(v), k(KEmpty))
   }
   case PrintCharExp(s, e) => {
+    //Char, Id, Num
     val f = s.toInt
     val z = Fresh("tmp")
+   
     CPS(e)(
       y => {
         CPS(Num(f))(y1 => 
           CPS(e)(y2 => {
-            val iType = setLetDuo(y1, y2)
-            addNewVar(z, iType)
-            KLet(z, Kop("+", y1, y2), k(KVar(z)))
+            addNewVar(z, "Int")
+            KLet(z, Kop("+", y1, y2), k(KWriteCharExp(KVar(z))))
           }))
       }
     )
@@ -326,6 +328,14 @@ def compile_val(v: KVal) : String = v match {
     {s"call void @print_int (i32 ${compile_val(x1)})"}
   case KWriteChar(n) =>
     s"call void @print_char ([2 x i8] c\"${(n).toChar}\\00\")"
+  case KWriteCharExp(e) => {
+    val z = Fresh("p_c")
+    val z1 = Fresh("p_c")
+    val z2 = Fresh("p_c")
+
+    s"%${z} = sub i32 ${compile_val(e)}, 48" ++ 
+    i"\n   call void @print_int_c(i32 %${z})"
+  }
   case KSkip => "call void @skip()"
   case KNewLine => "call void @new_line()"
   case KPrintStar => "call void @print_star()"
@@ -373,6 +383,7 @@ def compile_exp(a: KExp) : String = a match {
 
 val prelude = """
 @.str = private constant [4 x i8] c"%d\0A\00"
+@.str_n = private constant [3 x i8] c"%d\00"
 
 declare i32 @printf(i8*, ...)
 
@@ -415,6 +426,12 @@ define void @print_char([2 x i8] %0) {
   %t0 = getelementptr [2 x i8], [2 x i8]* %k_2, i32 0, i32 0
   %2 = call i32 (i8*, ...) @printf(i8* %t0)
   ret void
+}
+
+define void @print_int_c(i32 %x) {
+   %t0 = getelementptr [3 x i8], [3 x i8]* @.str_n, i32 0, i32 0
+   call i32 (i8*, ...) @printf(i8* %t0, i32 %x) 
+   ret void
 }
 
 ; END OF BUILD-IN FUNCTIONS (prelude)
