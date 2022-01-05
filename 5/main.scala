@@ -102,8 +102,8 @@ case class KReturnD(v: KVal) extends KExp
 // continuation k.
 def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
   case Skip => k(KSkip)
-  case PrintSpace => k(KPrintSpace)
-  case PrintStar => k(KPrintStar)
+  case PrintSpace => KVoidPrint(KPrintSpace, k(KEmpty))
+  case PrintStar => KVoidPrint(KPrintStar, k(KEmpty))
   case NewLine => KVoidPrint(KNewLine, k(KEmpty))
   case Var(s) => k(KVar(s))
   case Num(i) => k(KNum(i))
@@ -259,6 +259,9 @@ def paramsListToStrHelper(s: List[KVal]) : String = s match {
     case KNum(n) => {
       k"i32 ${n} , " + paramsListToStrHelper(xs)
     }
+    case KFNum(n) => {
+      k"double ${n} , " + paramsListToStrHelper(xs)
+    }
   }
   case Nil => ""
 }
@@ -276,6 +279,7 @@ def paramsListToStr(s: List[KVal]) : String = {
 def compile_val(v: KVal) : String = v match {
   case KEmpty => ""
   case KNum(i) => s"$i"
+  case KFNum(i) => s"$i"
   case KVar(s) => s"%$s"
   case Kop(op, x1, x2) => 
     s"${compile_op(op)} ${compile_val(x1)}, ${compile_val(x2)}"
@@ -290,6 +294,8 @@ def compile_val(v: KVal) : String = v match {
     s"call void @print_char ([2 x i8] c\"${(n).toChar}\\00\")"
   case KSkip => "call void @skip()"
   case KNewLine => "call void @new_line()"
+  case KPrintStar => "call void @print_star()"
+  case KPrintSpace => "call void @print_space()"
 }
 
 // compile K expressions
@@ -301,7 +307,7 @@ def compile_exp(a: KExp) : String = a match {
     i"ret void"
   }
   case KReturnF(v) =>
-    i"ret float ${compile_val(v)}"
+    i"ret double ${compile_val(v)}"
   case KReturnD(v) =>
     i"ret double ${compile_val(v)}"
   case KLet(x: String, v: KVal, e: KExp) => 
@@ -319,7 +325,11 @@ def compile_exp(a: KExp) : String = a match {
     i"${compile_val(e1)}" ++ compile_exp(e2)
   }
   case KConstVar(v, e1, e2) => {
-    i"%${v} = load i32 , i32* @${e1}" ++ compile_exp(e2)
+    val iType = getItemType(e1, constCol)
+    if (iType == "NA" )
+      i"%${v} = load i32 , i32* @${e1}" ++ compile_exp(e2)
+    else
+      i"%${v} = load ${retType(iType)} , ${retType(iType)}* @${e1}" ++ compile_exp(e2)
   }
 
 }
@@ -377,7 +387,7 @@ define void @print_char([2 x i8] %0) {
 def retType(in: String) : String = in match {
   case "Int" => "i32"
   case "Double" => "double"
-  case "Float" => "float"
+  case "Float" => "double"
   case "Void" => "void"
 
 }
@@ -441,7 +451,7 @@ def compile_decl(d: Decl) : String = d match {
   }
   case FConst(name, x) => {
     addNewConst(name, "Float")
-    m"@$name = global float $x \n"
+    m"@$name = global double $x \n"
   }
 }
 

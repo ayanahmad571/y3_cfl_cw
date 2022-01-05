@@ -46,53 +46,97 @@ define void @print_char([2 x i8] %0) {
 
 ; END OF BUILD-IN FUNCTIONS (prelude)
 
-define i32 @fact (i32 %n  ) {
-   %tmp_0 = icmp eq i32  %n, 0
-   br i1 %tmp_0, label %if_branch_4, label %else_branch_5
+@Ymin = global double -1.3 
 
-if_branch_4:
-   ret i32 1
+@Ymax = global double 1.3 
 
-else_branch_5:
-   %tmp_2 = sub i32  %n, 1
-   %tmp_3 = call i32 @fact (i32 %tmp_2  )
-   %tmp_1 = mul i32  %n, %tmp_3
-   ret i32 %tmp_1
-}
+@Ystep = global double 0.05 
 
-define i32 @facT (i32 %n , i32 %acc  ) {
-   %tmp_6 = icmp eq i32  %n, 0
-   br i1 %tmp_6, label %if_branch_10, label %else_branch_11
+@Xmin = global double -2.1 
 
-if_branch_10:
-   ret i32 %acc
+@Xmax = global double 1.1 
 
-else_branch_11:
-   %tmp_7 = sub i32  %n, 1
-   %tmp_8 = mul i32  %n, %acc
-   %tmp_9 = call i32 @facT (i32 %tmp_7 , i32 %tmp_8  )
-   ret i32 %tmp_9
-}
+@Xstep = global double 0.02 
 
-define i32 @facTi (i32 %n  ) {
-   %tmp_12 = call i32 @facT (i32 %n , i32 1  )
-   ret i32 %tmp_12
-}
+@Maxiters = global i32 1000 
 
-define void @top () {
-   %tmp_13 = call i32 @fact (i32 6  )
-   call void @print_int (i32 %tmp_13)
-   call void @print_char ([2 x i8] c",\00")
-   %tmp_14 = call i32 @facTi (i32 6  )
-   call void @print_int (i32 %tmp_14)
-   call void @print_char ([2 x i8] c"
-\00")
+define void @m_iter (i32 %m , double %x , double %y , double %zr , double %zi  ) {
+   %tmp_1 = load i32 , i32* @Maxiters
+   %tmp_0 = icmp sle i32  %tmp_1, %m
+   br i1 %tmp_0, label %if_branch_14, label %else_branch_15
+
+if_branch_14:
+   call void @print_star()
+   
+   ret void
+
+else_branch_15:
+   %tmp_4 = mul i32  %zi, %zi
+   %tmp_5 = mul i32  %zr, %zr
+   %tmp_3 = add i32  %tmp_4, %tmp_5
+   %tmp_2 = icmp sle i32  4.0, %tmp_3
+   br i1 %tmp_2, label %if_branch_16, label %else_branch_17
+
+if_branch_16:
+   call void @print_space()
+   
+   ret void
+
+else_branch_17:
+   %tmp_6 = add i32  %m, 1
+   %tmp_9 = mul i32  %zr, %zr
+   %tmp_10 = mul i32  %zi, %zi
+   %tmp_8 = sub i32  %tmp_9, %tmp_10
+   %tmp_7 = add i32  %x, %tmp_8
+   %tmp_13 = mul i32  %zr, %zi
+   %tmp_12 = mul i32  2.0, %tmp_13
+   %tmp_11 = add i32  %tmp_12, %y
+   call void @m_iter (i32 %tmp_6 , double %x , double %y , i32 %tmp_7 , i32 %tmp_11  )
    
    ret void
 }
 
+define void @x_iter (double %x , double %y  ) {
+   %tmp_19 = load double , double* @Xmax
+   %tmp_18 = icmp sle i32  %x, %tmp_19
+   br i1 %tmp_18, label %if_branch_22, label %else_branch_23
+
+if_branch_22:
+   call void @m_iter (i32 0 , double %x , double %y , double 0.0 , double 0.0  )
+   %tmp_21 = load double , double* @Xstep
+   %tmp_20 = add i32  %x, %tmp_21
+   call void @x_iter (i32 %tmp_20 , double %y  )
+   
+   ret void
+
+else_branch_23:
+   call void @skip()
+   ret void
+}
+
+define void @y_iter (double %y  ) {
+   %tmp_25 = load double , double* @Ymax
+   %tmp_24 = icmp sle i32  %y, %tmp_25
+   br i1 %tmp_24, label %if_branch_29, label %else_branch_30
+
+if_branch_29:
+   %tmp_26 = load double , double* @Xmin
+   call void @x_iter (i32 %tmp_26 , double %y  )
+   call void @new_line()
+   %tmp_28 = load double , double* @Ystep
+   %tmp_27 = add i32  %y, %tmp_28
+   call void @y_iter (i32 %tmp_27  )
+   
+   ret void
+
+else_branch_30:
+   call void @skip()
+   ret void
+}
+
 define i32 @main() {
-   call void @top ()
+   %tmp_31 = load double , double* @Ymin
+   call void @y_iter (i32 %tmp_31  )
    ret i32 0
 }
 
