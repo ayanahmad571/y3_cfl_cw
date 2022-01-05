@@ -47,24 +47,24 @@ define i32 @sqr (i32 %x  ) {
 define void @all (i32 %n  ) {
    %tmp_2 = load i32 , i32* @Max
    %tmp_1 = icmp sle i32  %n, %tmp_2
-   br i1 %tmp_1, label %if_branch_6, label %else_branch_7
+   br i1 %tmp_1, label %if_branch_5, label %else_branch_6
 
-if_branch_6:
+if_branch_5:
    %tmp_3 = call i32 @sqr (i32 %n)
    call void @print_int (i32 %tmp_3)
    call void @new_line()
    %tmp_4 = add i32  %n, 1
-   %tmp_5 = call i32 @all (i32 %tmp_4)
-   %tmp_5
+   call void @all (i32 %tmp_4)
+   
    ret void
 
-else_branch_7:
+else_branch_6:
    call void @skip()
    ret void
 }
 
 define i32 @main() {
-   %tmp_8 = call i32 @all (i32 0)
+   call void @all (i32 0)
    ret i32 0
 }
 

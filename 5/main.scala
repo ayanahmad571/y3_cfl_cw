@@ -23,6 +23,33 @@ def Fresh(x: String) = {
   x ++ "_" ++ counter.toString()
 }
 
+
+var fCol = List[(String, String)]()
+var constCol = List[(String, String)]()
+var varCol = List[(String, String)]()
+
+def addNewFunction(name: String, ty: String) = {
+  fCol = fCol ::: List((name, ty))
+}
+
+def addNewConst(name: String, ty: String) = {
+  constCol = constCol ::: List((name, ty))
+}
+
+def addNewVar(name: String, ty: String) = {
+  varCol = varCol ::: List((name, ty))
+}
+
+def getItemType(name: String, colList: List[(String, String)]) : String = colList match {
+  case x::xs => {
+    if (x._1 == name) x._2
+    else getItemType(name, xs)
+  }
+  case _ => "NA"
+}
+
+
+
 // Internal CPS language for FUN
 abstract class KExp
 abstract class KVal
@@ -32,13 +59,14 @@ case class KVarC(s: String) extends KVal
 // case class KVar(s: String, ty: Ty = "UNDEF") extends KVal
 
 case object KSkip extends KVal
+case object KEmpty extends KVal
 case object KPrintSpace extends KVal
 case object KPrintStar extends KVal
 case object KNewLine extends KVal
 case class KNum(i: Int) extends KVal
 case class KFNum(i: Float) extends KVal
 case class Kop(o: String, v1: KVal, v2: KVal) extends KVal
-case class KCall(o: String, vrs: List[KVal]) extends KVal
+case class KCall(o: String, vrs: List[KVal], ty: String) extends KVal
 case class KWrite(v: KVal) extends KVal
 case class KWriteStr(s: String) extends KVal
 case class KWriteInt(v: KVal) extends KVal
@@ -75,7 +103,7 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
   case Skip => k(KSkip)
   case PrintSpace => k(KPrintSpace)
   case PrintStar => k(KPrintStar)
-  case NewLine => KVoidPrint(KNewLine, k(KNewLine))
+  case NewLine => KVoidPrint(KNewLine, k(KEmpty))
   case Var(s) => k(KVar(s))
   case Num(i) => k(KNum(i))
   case FNum(i) => k(KFNum(i))
@@ -96,14 +124,49 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
         KLet(z, Kop(o, y1, y2), KIf(z, CPS(e1)(k), CPS(e2)(k)))))
   }
   case Call(name, args) => {
-    def aux(args: List[Exp], vs: List[KVal]) : KExp = args match {
-      case Nil => {
-          val z = Fresh("tmp")
-          KLet(z, KCall(name, vs), k(KVar(z)))
+    val getTy = getItemType(name, fCol)
+    getTy match {
+      case "Int" => {
+        def aux(args: List[Exp], vs: List[KVal]) : KExp = args match {
+          case Nil => {
+              val z = Fresh("tmp")
+              KLet(z, KCall(name, vs, "Int"), k(KVar(z)))
+          }
+          case e::es => CPS(e)(y => aux(es, vs ::: List(y)))
+        }
+        aux(args, Nil)
       }
-      case e::es => CPS(e)(y => aux(es, vs ::: List(y)))
+      case "Double" => {
+        def aux(args: List[Exp], vs: List[KVal]) : KExp = args match {
+          case Nil => {
+              val z = Fresh("tmp")
+              KLet(z, KCall(name, vs, "Double"), k(KVar(z)))
+          }
+          case e::es => CPS(e)(y => aux(es, vs ::: List(y)))
+        }
+        aux(args, Nil)
+      }
+      case "Float" => {
+        def aux(args: List[Exp], vs: List[KVal]) : KExp = args match {
+          case Nil => {
+              val z = Fresh("tmp")
+              KLet(z, KCall(name, vs, "Float"), k(KVar(z)))
+          }
+          case e::es => CPS(e)(y => aux(es, vs ::: List(y)))
+        }
+        aux(args, Nil)
+      }
+      case "Void" => {
+        def aux(args: List[Exp], vs: List[KVal]) : KExp = args match {
+          case Nil => {
+              KVoidPrint(KCall(name, vs, "Void"), k(KEmpty))
+          }
+          case e::es => CPS(e)(y => aux(es, vs ::: List(y)))
+        }
+        aux(args, Nil)
+      }
     }
-    aux(args, Nil)
+    
   }
   case Sequence(e1, e2) => 
     CPS(e1)(_ => CPS(e2)(y2 => k(y2)))
@@ -111,7 +174,7 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
   case PrintInt(e) => {
     // val z = Fresh("tmp")
     // CPS(e)(y => KLet(z, KWriteInt(y), k(KVar(z))))
-    CPS(e)(y => KVoidPrint(KWriteInt(y), k(KWriteInt(y))))
+    CPS(e)(y => KVoidPrint(KWriteInt(y), k(KEmpty)))
   }
   case PrintFloat(e) => CPS(e)(y => k(KWriteFloat(y)))
   case PrintChar(e) => {
@@ -186,17 +249,18 @@ def compile_dop(op: String) = op match {
 
 // compile K values
 def compile_val(v: KVal) : String = v match {
+  case KEmpty => ""
   case KNum(i) => s"$i"
   case KVar(s) => s"%$s"
   case KVar(s) => s"%$s"
   case Kop(op, x1, x2) => 
     s"${compile_op(op)} ${compile_val(x1)}, ${compile_val(x2)}"
-  case KCall(x1, args) => 
-    s"call i32 @$x1 (${args.map(compile_val).mkString("i32 ", ", i32 ", "")})"
+  case KCall(x1, args, ty) => 
+    s"call ${retType(ty)} @$x1 (${args.map(compile_val).mkString("i32 ", ", i32 ", "")})"
   case KWrite(x1) =>
     s"call void @print_int (i32 ${compile_val(x1)})"
   case KWriteInt(x1) => 
-   {println("ssssss"); s"call void @print_int (i32 ${compile_val(x1)})"}
+   {s"call void @print_int (i32 ${compile_val(x1)})"}
   case KSkip => "call void @skip()"
   case KNewLine => "call void @new_line()"
 }
@@ -296,6 +360,7 @@ def argListToString(s: List[(String, String)]) : String = {
 // compile function for declarations and main
 def compile_decl(d: Decl) : String = d match {
   case Def(name, args, ty, body) => {
+    addNewFunction(name, ty)
     ty match {
       case "Int" => {
         m"define ${retType(ty)} @$name (${argListToString(args)}) {" ++
@@ -325,14 +390,14 @@ def compile_decl(d: Decl) : String = d match {
     m"define i32 @main() {" ++
     compile_exp(CPS(body)(_ => KReturn(KNum(0)))) ++
     m"}\n"
-    
-
   }
   case Const(name, x) => {
     // println(m"@$name = global i32 $x \n")
+    addNewConst(name, "Int")
     m"@$name = global i32 $x \n"
   }
   case FConst(name, x) => {
+    addNewConst(name, "Float")
     m"@$name = global float $x \n"
   }
 }
@@ -341,7 +406,6 @@ def compile_decl(d: Decl) : String = d match {
 // main compiler functions
 def compile(prog: List[Decl]) : String = 
   prelude ++ (prog.map(compile_decl).mkString)
-
 
 import ammonite.ops._
 
