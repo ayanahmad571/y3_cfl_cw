@@ -264,6 +264,7 @@ def compile_op(op: String) = op match {
   case "/" => "sdiv i32 "
   case "%" => "srem i32 "
   case "==" => "icmp eq i32 "
+  case "!=" => "icmp ne i32 "
   case "<=" => "icmp sle i32 "     // signed less or equal
   case "<"  => "icmp slt i32 "     // signed less than
 }
