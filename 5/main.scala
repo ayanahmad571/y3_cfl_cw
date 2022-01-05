@@ -38,6 +38,7 @@ def addNewConst(name: String, ty: String) = {
 }
 
 def addNewVar(name: String, ty: String) = {
+  // println("Added temp var %", name, " with type: ", ty)
   varColTemp = varColTemp ::: List((name, ty))
 }
 
@@ -55,9 +56,8 @@ def getItemType(name: String, colList: List[(String, String)]) : String = colLis
 abstract class KExp
 abstract class KVal
 
-case class KVar(s: String) extends KVal
-case class KVarC(s: String) extends KVal
-// case class KVar(s: String, ty: Ty = "UNDEF") extends KVal
+case class KVar(s: String) extends KVal 
+// case class KVar(s: String, t: String) extends KVal
 
 case object KSkip extends KVal
 case object KEmpty extends KVal
@@ -95,8 +95,23 @@ case class KReturnV(v: KVal) extends KExp
 case class KReturnF(v: KVal) extends KExp
 case class KReturnD(v: KVal) extends KExp
 
-// def typ_val(v: KVal , ts: TyEnv) = ???
-// def typ_exp(a: KExp , ts: TyEnv) = ???
+def setLetDuo(y1: KVal, y2: KVal) : String = (y1,y2) match {
+  case (KVar(a), KVar(b)) => {
+    val aT = getItemType(a, varColTemp)
+    val bT = getItemType(a, varColTemp)
+    if (aT == "Int") bT
+    else aT
+  }
+  case (KVar(a), KNum(b)) => getItemType(a, varColTemp)
+  case (KNum(a), KVar(b)) => getItemType(b, varColTemp)
+  case (KNum(a), KNum(b)) => "Int"
+  case (KVar(a), KFNum(b)) => "Double"
+  case (KFNum(a), KVar(b)) => "Double"
+  case (KFNum(a), KFNum(b)) => "Double"
+  case _ => { println ("Variable Match Error") ; sys.exit(-1) }
+}
+
+
 
 // CPS translation from Exps to KExps using a
 // continuation k.
@@ -116,13 +131,20 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
   case Aop(o, e1, e2) => {
     val z = Fresh("tmp")
     CPS(e1)(y1 => 
-      CPS(e2)(y2 => KLet(z, Kop(o, y1, y2), k(KVar(z)))))
+      CPS(e2)(y2 => {
+        val iType = setLetDuo(y1, y2)
+        addNewVar(z, iType)
+        KLet(z, Kop(o, y1, y2), k(KVar(z)))
+      }))
   }
   case If(Bop(o, b1, b2), e1, e2) => {
     val z = Fresh("tmp")
     CPS(b1)(y1 => 
-      CPS(b2)(y2 => 
-        KLet(z, Kop(o, y1, y2), KIf(z, CPS(e1)(k), CPS(e2)(k)))))
+      CPS(b2)(y2 => {
+        val iType = setLetDuo(y1, y2)
+        addNewVar(z, iType)
+        KLet(z, Kop(o, y1, y2), KIf(z, CPS(e1)(k), CPS(e2)(k)))
+      }))
   }
   case Call(name, args) => {
     val getTy = getItemType(name, fCol)
@@ -131,6 +153,7 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
         def aux(args: List[Exp], vs: List[KVal]) : KExp = args match {
           case Nil => {
               val z = Fresh("tmp")
+              addNewVar(z, "Int")
               KLet(z, KCall(name, vs, "Int"), k(KVar(z)))
           }
           case e::es => CPS(e)(y => aux(es, vs ::: List(y)))
@@ -141,6 +164,7 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
         def aux(args: List[Exp], vs: List[KVal]) : KExp = args match {
           case Nil => {
               val z = Fresh("tmp")
+              addNewVar(z, "Double")
               KLet(z, KCall(name, vs, "Double"), k(KVar(z)))
           }
           case e::es => CPS(e)(y => aux(es, vs ::: List(y)))
@@ -151,6 +175,7 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
         def aux(args: List[Exp], vs: List[KVal]) : KExp = args match {
           case Nil => {
               val z = Fresh("tmp")
+              addNewVar(z, "Float")
               KLet(z, KCall(name, vs, "Float"), k(KVar(z)))
           }
           case e::es => CPS(e)(y => aux(es, vs ::: List(y)))
@@ -188,7 +213,11 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
     CPS(e)(
       y => {
         CPS(Num(f))(y1 => 
-          CPS(e)(y2 => KLet(z, Kop("+", y1, y2), k(KVar(z)))))
+          CPS(e)(y2 => {
+            val iType = setLetDuo(y1, y2)
+            addNewVar(z, iType)
+            KLet(z, Kop("+", y1, y2), k(KVar(z)))
+          }))
       }
     )
   }
@@ -238,13 +267,13 @@ def compile_op(op: String) = op match {
 }
 
 def compile_dop(op: String) = op match {
-  case "+" => "fadd float "
-  case "*" => "fmul float "
-  case "-" => "fsub float "
-  case "==" => "fcmp oeq float "
-  case "!=" => "fcmp one float "
-  case "<=" => "fcmp ole float "
-  case "<" => "fcmp olt float "
+  case "+" => "fadd double "
+  case "*" => "fmul double "
+  case "-" => "fsub double "
+  case "==" => "fcmp oeq double "
+  case "!=" => "fcmp one double "
+  case "<=" => "fcmp ole double "
+  case "<" => "fcmp olt double "
 }
 
 def paramsListToStrHelper(s: List[KVal]) : String = s match {
@@ -281,8 +310,13 @@ def compile_val(v: KVal) : String = v match {
   case KNum(i) => s"$i"
   case KFNum(i) => s"$i"
   case KVar(s) => s"%$s"
-  case Kop(op, x1, x2) => 
-    s"${compile_op(op)} ${compile_val(x1)}, ${compile_val(x2)}"
+  case Kop(op, x1, x2) => {
+    val iType = setLetDuo(x1, x2)
+    if (iType == "Int")
+      s"${compile_op(op)} ${compile_val(x1)}, ${compile_val(x2)}"
+    else
+      s"${compile_dop(op)} ${compile_val(x1)}, ${compile_val(x2)}"
+  }
   case KCall(x1, args, ty) => {
     s"call ${retType(ty)} @${x1} (${paramsListToStr(args)})"
   }
@@ -328,8 +362,10 @@ def compile_exp(a: KExp) : String = a match {
     val iType = getItemType(e1, constCol)
     if (iType == "NA" )
       i"%${v} = load i32 , i32* @${e1}" ++ compile_exp(e2)
-    else
+    else {
+      addNewVar(v, iType)
       i"%${v} = load ${retType(iType)} , ${retType(iType)}* @${e1}" ++ compile_exp(e2)
+    }
   }
 
 }
