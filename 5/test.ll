@@ -55,7 +55,7 @@ if_branch_4:
 
 else_branch_5:
    %tmp_2 = sub i32  %n, 1
-   %tmp_3 = call i32 @fact (i32 %tmp_2)
+   %tmp_3 = call i32 @fact (i32 %tmp_2  )
    %tmp_1 = mul i32  %n, %tmp_3
    ret i32 %tmp_1
 }
@@ -70,20 +70,20 @@ if_branch_10:
 else_branch_11:
    %tmp_7 = sub i32  %n, 1
    %tmp_8 = mul i32  %n, %acc
-   %tmp_9 = call i32 @facT (i32 %tmp_7, i32 %tmp_8)
+   %tmp_9 = call i32 @facT (i32 %tmp_7 , i32 %tmp_8  )
    ret i32 %tmp_9
 }
 
 define i32 @facTi (i32 %n  ) {
-   %tmp_12 = call i32 @facT (i32 %n, i32 1)
+   %tmp_12 = call i32 @facT (i32 %n , i32 1  )
    ret i32 %tmp_12
 }
 
 define void @top () {
-   %tmp_13 = call i32 @fact (i32 6)
+   %tmp_13 = call i32 @fact (i32 6  )
    call void @print_int (i32 %tmp_13)
    call void @print_char ([2 x i8] c",\00")
-   %tmp_14 = call i32 @facTi (i32 6)
+   %tmp_14 = call i32 @facTi (i32 6  )
    call void @print_int (i32 %tmp_14)
    call void @print_char ([2 x i8] c"
 \00")
@@ -92,7 +92,7 @@ define void @top () {
 }
 
 define i32 @main() {
-   call void @top (i32 )
+   call void @top ()
    ret i32 0
 }
 

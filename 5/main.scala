@@ -280,10 +280,7 @@ def compile_val(v: KVal) : String = v match {
   case Kop(op, x1, x2) => 
     s"${compile_op(op)} ${compile_val(x1)}, ${compile_val(x2)}"
   case KCall(x1, args, ty) => {
-    println((args.map(compile_val)))
-    // s"call ${retType(ty)} @${x1} (${paramsListToStr(args.map(compile_val))})"
-    s"call ${retType(ty)} @$x1 (${args.map(compile_val).mkString("i32 ", ", i32 ", "")})"
-
+    s"call ${retType(ty)} @${x1} (${paramsListToStr(args)})"
   }
   case KWrite(x1) =>
     s"call void @print_int (i32 ${compile_val(x1)})"
