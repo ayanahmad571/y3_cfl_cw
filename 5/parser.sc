@@ -158,6 +158,7 @@ case class Write(e: Exp) extends Exp
 
 case class WriteStr(e: String) extends Exp
 case class Var(s: String) extends Exp
+case class VarC(s: String) extends Exp
 case class Num(i: Int) extends Exp // integer numbers
 case class FNum(i: Float) extends Exp // floating numbers
 case class ChConst(c: String) extends Exp // char constants
@@ -213,7 +214,7 @@ lazy val F: Parser[List[Token], Exp] =
   (IdParser ~ T_LPAREN_N ~ T_RPAREN_N) ==> { case x ~ _ ~ _ => Call(x, List()): Exp } ||
   (T_LPAREN_N ~ Exp ~ T_RPAREN_N) ==> { case _ ~ y ~ _ => y: Exp } || 
   IdParser ==> { case x => Var(x): Exp } || 
-  IdConstParser ==> { case x => Var(x): Exp } || 
+  IdConstParser ==> { case x => VarC(x): Exp } || 
   NumParser ==> { case x => Num(x): Exp } ||
   FloatParser ==> { case x => FNum(x): Exp }
 
