@@ -55,10 +55,12 @@ if_branch_6:
    call void @new_line()
    %tmp_4 = add i32  %n, 1
    %tmp_5 = call i32 @all (i32 %tmp_4)
-   ret i32 %tmp_5
+   %tmp_5
+   ret void
 
 else_branch_7:
-   ret i32 call void @skip()
+   call void @skip()
+   ret void
 }
 
 define i32 @main() {

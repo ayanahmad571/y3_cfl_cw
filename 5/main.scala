@@ -62,6 +62,9 @@ case class KIf(x1: String, e1: KExp, e2: KExp) extends KExp {
      s"IF $x1\nTHEN\n${pad(e1)}\nELSE\n${pad(e2)}"
 }
 case class KReturn(v: KVal) extends KExp
+case class KReturnV(v: KVal) extends KExp
+case class KReturnF(v: KVal) extends KExp
+case class KReturnD(v: KVal) extends KExp
 
 // def typ_val(v: KVal , ts: TyEnv) = ???
 // def typ_exp(a: KExp , ts: TyEnv) = ???
@@ -138,6 +141,10 @@ def CPS(e: Exp)(k: KVal => KExp) : KExp = e match {
 
 //initial continuation
 def CPSi(e: Exp) = CPS(e)(KReturn)
+def CPSv(e: Exp) = CPS(e)(KReturnV)
+def CPSf(e: Exp) = CPS(e)(KReturnF)
+def CPSd(e: Exp) = CPS(e)(KReturnD)
+
 
 // val ai = List(("m", "Int"),("m", "Int"),("m", "Int"),("m", "Int"))
 
@@ -197,14 +204,18 @@ def compile_val(v: KVal) : String = v match {
 // compile K expressions
 def compile_exp(a: KExp) : String = a match {
   case KReturn(v) =>
-    // println("_____Ret_____")
-    // println(v)
     i"ret i32 ${compile_val(v)}"
+  case KReturnV(v) => {
+    i"${compile_val(v)}" ++
+    i"ret void"
+  }
+  case KReturnF(v) =>
+    i"ret float ${compile_val(v)}"
+  case KReturnD(v) =>
+    i"ret double ${compile_val(v)}"
   case KLet(x: String, v: KVal, e: KExp) => 
     i"%$x = ${compile_val(v)}" ++ compile_exp(e)
   case KIf(x, e1, e2) => {
-    // println("_____If_____")
-    // println(e1)
     val if_br = Fresh("if_branch")
     val else_br = Fresh("else_branch")
     i"br i1 %$x, label %$if_br, label %$else_br" ++
@@ -284,12 +295,30 @@ def argListToString(s: List[(String, String)]) : String = {
 
 // compile function for declarations and main
 def compile_decl(d: Decl) : String = d match {
-  case Def(name, args, ty, body) => { 
-    // println(m"define ${retType(ty)} @$name (${argListToString(args)}) {")
-    m"define ${retType(ty)} @$name (${argListToString(args)}) {" ++
-    compile_exp(CPSi(body)) ++
-    m"}\n"
-
+  case Def(name, args, ty, body) => {
+    ty match {
+      case "Int" => {
+        m"define ${retType(ty)} @$name (${argListToString(args)}) {" ++
+        compile_exp(CPSi(body)) ++
+        m"}\n"
+      }
+      case "Double" => {
+        m"define ${retType(ty)} @$name (${argListToString(args)}) {" ++
+        compile_exp(CPSd(body)) ++
+        m"}\n"
+      }
+      case "Float" => {
+        m"define ${retType(ty)} @$name (${argListToString(args)}) {" ++
+        compile_exp(CPSf(body)) ++
+        m"}\n"
+      }
+      case "Void" => {
+        m"define ${retType(ty)} @$name (${argListToString(args)}) {" ++
+        compile_exp(CPSv(body)) ++
+        m"}\n"
+      }
+    } 
+    
   }
   case Main(body) => {
     // println(m"define i32 @main() {")
@@ -361,5 +390,4 @@ def run(fname: String) = {
     os.proc(os.pwd / (file ++ ".bin")).call(stdout = os.Inherit)
     println(s"done.")
 }
-
 
