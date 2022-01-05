@@ -26,7 +26,8 @@ def Fresh(x: String) = {
 
 var fCol = List[(String, String)]()
 var constCol = List[(String, String)]()
-var varCol = List[(String, String)]()
+var varColTemp = List[(String, String)]()
+
 
 def addNewFunction(name: String, ty: String) = {
   fCol = fCol ::: List((name, ty))
@@ -37,7 +38,7 @@ def addNewConst(name: String, ty: String) = {
 }
 
 def addNewVar(name: String, ty: String) = {
-  varCol = varCol ::: List((name, ty))
+  varColTemp = varColTemp ::: List((name, ty))
 }
 
 def getItemType(name: String, colList: List[(String, String)]) : String = colList match {
@@ -246,16 +247,44 @@ def compile_dop(op: String) = op match {
   case "<" => "fcmp olt float "
 }
 
+def paramsListToStrHelper(s: List[KVal]) : String = s match {
+  case x :: xs => x match {
+    case KVar(n) => {
+      val iType = getItemType(n, varColTemp)
+      if (iType == "NA" )
+        k"i32 %${n} , " + paramsListToStrHelper(xs)
+      else
+        k"${retType(iType)} %${n} , " + paramsListToStrHelper(xs)
+    }
+    case KNum(n) => {
+      k"i32 ${n} , " + paramsListToStrHelper(xs)
+    }
+  }
+  case Nil => ""
+}
+
+def paramsListToStr(s: List[KVal]) : String = {
+  if (s.length < 1) ""
+  else {
+    val vals = paramsListToStrHelper(s);
+    val p = vals.patch(vals.lastIndexOf(','), "", 1)
+    p
+  }
+}
+
 // compile K values
 def compile_val(v: KVal) : String = v match {
   case KEmpty => ""
   case KNum(i) => s"$i"
   case KVar(s) => s"%$s"
-  case KVar(s) => s"%$s"
   case Kop(op, x1, x2) => 
     s"${compile_op(op)} ${compile_val(x1)}, ${compile_val(x2)}"
-  case KCall(x1, args, ty) => 
+  case KCall(x1, args, ty) => {
+    println((args.map(compile_val)))
+    // s"call ${retType(ty)} @${x1} (${paramsListToStr(args.map(compile_val))})"
     s"call ${retType(ty)} @$x1 (${args.map(compile_val).mkString("i32 ", ", i32 ", "")})"
+
+  }
   case KWrite(x1) =>
     s"call void @print_int (i32 ${compile_val(x1)})"
   case KWriteInt(x1) => 
@@ -357,11 +386,15 @@ def retType(in: String) : String = in match {
 }
 
 def argListToStringHelper(s: List[(String, String)]) : String = s match {
-  case x :: xs => k"${retType(x._2)} %${x._1} , " + argListToStringHelper(xs)
+  case x :: xs => {
+    addNewVar(x._1, x._2)
+    k"${retType(x._2)} %${x._1} , " + argListToStringHelper(xs)
+  }
   case Nil => ""
 }
 
 def argListToString(s: List[(String, String)]) : String = {
+  varColTemp = List()
   if (s.length < 1) ""
   else {
     val vals = argListToStringHelper(s);

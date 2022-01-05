@@ -92,7 +92,7 @@ define void @top () {
 }
 
 define i32 @main() {
-   call void @top ()
+   call void @top (i32 )
    ret i32 0
 }
 
