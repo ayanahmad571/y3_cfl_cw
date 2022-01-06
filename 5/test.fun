@@ -1,36 +1,13 @@
-// Mandelbrot program (with character constants)
+// Towers of Hanoi in Fun
 
-val Ymin: Double = -1.3;
-val Ymax: Double =  1.3;
-val Ystep: Double = 0.05;  //0.025;
+def hanoi(n: Int, a: Int, b: Int, c: Int) : Void =
+  if n != 0 then {
+    hanoi(n - 1, a, c, b);
+    print_int(a);
+    print_char('-'); print_char('>'); // prints out "->"
+    print_int(b);
+    print_char('\n');
+    hanoi(n - 1, c, b, a)
+  } else skip;
 
-val Xmin: Double = -2.1;
-val Xmax: Double =  1.1;
-val Xstep: Double = 0.02;  //0.01;
-
-val Maxiters: Int = 1000;
-
-def m_iter(m: Int, x: Double, y: Double,
-                   zr: Double, zi: Double) : Void = {
-  if Maxiters <= m
-  then print_char(' ') 
-  else {
-    if 4.0 <= zi*zi+zr*zr then print_char('0' + (m % 10)) 
-    else m_iter(m + 1, x, y, x+zr*zr-zi*zi, 2.0*zr*zi+y) 
-  }
-};
-
-def x_iter(x: Double, y: Double) : Void = {
-  if x <= Xmax
-  then { m_iter(0, x, y, 0.0, 0.0) ; x_iter(x + Xstep, y) }
-  else skip()
-};
-
-def y_iter(y: Double) : Void = {
-  if y <= Ymax
-  then { x_iter(Xmin, y) ; print_char('\n') ; y_iter(y + Ystep) }
-  else skip() 
-};    
-
-
-y_iter(Ymin)
+hanoi(4,1,2,3)

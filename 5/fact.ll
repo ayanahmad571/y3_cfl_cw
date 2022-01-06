@@ -1,5 +1,6 @@
 
 @.str = private constant [4 x i8] c"%d\0A\00"
+@.str_n = private constant [3 x i8] c"%d\00"
 
 declare i32 @printf(i8*, ...)
 
@@ -42,6 +43,12 @@ define void @print_char([2 x i8] %0) {
   %t0 = getelementptr [2 x i8], [2 x i8]* %k_2, i32 0, i32 0
   %2 = call i32 (i8*, ...) @printf(i8* %t0)
   ret void
+}
+
+define void @print_int_c(i32 %x) {
+   %t0 = getelementptr [3 x i8], [3 x i8]* @.str_n, i32 0, i32 0
+   call i32 (i8*, ...) @printf(i8* %t0, i32 %x) 
+   ret void
 }
 
 ; END OF BUILD-IN FUNCTIONS (prelude)
