@@ -551,14 +551,32 @@ def write(fname: String) = {
 // Code here had to be changed for my machine
 // Else it was throwing this error:
 // R_X86_64_32 against `.rodata' can not be used when making a PIE object
+
+
+// THIS IS THE FUNCTION WHICH RUNS ON MY PC
+
+// @main
+// def run(fname: String) = {
+//     val path = os.pwd / fname
+//     val file = fname.stripSuffix("." ++ path.ext)
+//     write(fname)  
+//     os.proc("llc", "-filetype=obj", "--relocation-model=pic", file ++ ".ll").call()
+//     os.proc("gcc", "-fPIE",  file ++ ".o", "-o", file ++ ".bin").call()
+//     os.proc(os.pwd / (file ++ ".bin")).call(stdout = os.Inherit)
+//     println(s"done.")
+// }
+
+
+// this functino DOES NOT run on my PC and gives the following error:
+// R_X86_64_32 against `.rodata' can not be used when making a PIE object
+
 @main
 def run(fname: String) = {
     val path = os.pwd / fname
     val file = fname.stripSuffix("." ++ path.ext)
     write(fname)  
-    os.proc("llc", "-filetype=obj", "--relocation-model=pic", file ++ ".ll").call()
-    os.proc("gcc", "-fPIE",  file ++ ".o", "-o", file ++ ".bin").call()
+    os.proc("llc", "-filetype=obj", file ++ ".ll").call()
+    os.proc("gcc", file ++ ".o", "-o", file ++ ".bin").call()
     os.proc(os.pwd / (file ++ ".bin")).call(stdout = os.Inherit)
     println(s"done.")
 }
-
